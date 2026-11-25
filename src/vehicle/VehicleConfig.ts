@@ -1,3 +1,5 @@
+import type { EngineKind } from '../audio/EngineVoice';
+
 export interface VehicleConfig {
   name: string;
   mass: number;            // kg
@@ -26,7 +28,9 @@ export interface VehicleConfig {
   suspensionStiffness: number; // visual body pitch/roll spring
   suspensionDamping: number;
   color: [number, number, number];
-  model?: 'sedan' | 'bus';  // body from VehicleModels (default sedan)
+  model?: 'sedan' | 'bus' | 'van' | 'tuktuk' | 'motorcycle';  // body from VehicleModels (default sedan)
+  engine?: EngineKind;      // engine sound (default petrol4)
+  bike?: boolean;           // two-wheeler: leans into turns instead of rolling out
   accent?: number;          // livery band colour (bus)
 }
 
@@ -91,4 +95,46 @@ export const cityBus: VehicleConfig = {
   suspensionStiffness: 25,
   suspensionDamping: 6,
   color: [0.93, 0.93, 0.92],
+  engine: 'diesel6',
 };
+
+/** 150 cc commuter motorcycle + rider (Bajaj Pulsar / Honda CB class). Light, quick, 2 wheels, leans into turns. */
+export const motorcycle: VehicleConfig = {
+  name: 'Motorcycle', model: 'motorcycle', engine: 'single', bike: true,
+  mass: 230, inertia: 60, cgToFront: 0.65, cgToRear: 0.65, cgHeight: 0.65, trackWidth: 0, wheelRadius: 0.3,
+  length: 1.95, width: 0.75, height: 1.15, driveFront: false,
+  torqueCurve: [[1400, 9], [5000, 13], [7500, 13.5], [9500, 11]], idleRpm: 1400, redline: 9500,
+  gears: [2.8, 1.85, 1.4, 1.15, 0.95], reverseRatio: 2.8, finalDrive: 10, shiftUpRpm: 8200, shiftDownRpm: 3600,
+  maxSteer: 0.5, steerSpeedFalloff: 10, steerRate: 2.6, corneringStiffness: 14000, mu: 1.05,
+  brakeForce: 2300, dragCoeff: 0.3, rollingResistance: 4, suspensionStiffness: 55, suspensionDamping: 8,
+  color: [0.69, 0.09, 0.12],
+};
+
+/** Bajaj RE-style three-wheeler (tuk-tuk): one front wheel, 200 cc, 4-speed, tops out ~70 km/h, tall and tippy. */
+export const tuktuk: VehicleConfig = {
+  name: 'Tuk-tuk', model: 'tuktuk', engine: 'twoStroke',
+  mass: 450, inertia: 280, cgToFront: 1.05, cgToRear: 0.55, cgHeight: 0.75, trackWidth: 1.15, wheelRadius: 0.22,
+  length: 2.65, width: 1.3, height: 1.75, driveFront: false,
+  torqueCurve: [[1300, 10], [3500, 15], [5000, 14.5], [6000, 12]], idleRpm: 1300, redline: 6000,
+  gears: [3.0, 1.9, 1.3, 0.95], reverseRatio: 3.0, finalDrive: 7.5, shiftUpRpm: 5000, shiftDownRpm: 2200,
+  maxSteer: 0.55, steerSpeedFalloff: 8, steerRate: 1.6, corneringStiffness: 27000, mu: 0.9,
+  brakeForce: 3000, dragCoeff: 0.55, rollingResistance: 8, suspensionStiffness: 28, suspensionDamping: 4,
+  color: [0.08, 0.08, 0.08],
+  accent: 0xf2c230,                // yellow upper cowl, as on the classic black-and-yellow tuk-tuk
+};
+
+/** Toyota HiAce-style diesel van: heavy, torquey, long braking distances. */
+export const van: VehicleConfig = {
+  name: 'Van', model: 'van', engine: 'diesel6',
+  mass: 2000, inertia: 3800, cgToFront: 1.25, cgToRear: 1.4, cgHeight: 0.8, trackWidth: 1.65, wheelRadius: 0.33,
+  length: 4.8, width: 1.88, height: 2.2, driveFront: false,
+  torqueCurve: [[750, 200], [2000, 300], [3000, 290], [4200, 230]], idleRpm: 750, redline: 4200,
+  gears: [4.3, 2.5, 1.5, 1.0, 0.8], reverseRatio: 4.0, finalDrive: 4.1, shiftUpRpm: 3300, shiftDownRpm: 1300,
+  maxSteer: 0.58, steerSpeedFalloff: 15, steerRate: 1.3, corneringStiffness: 120000, mu: 0.95,
+  brakeForce: 18000, dragCoeff: 0.75, rollingResistance: 25, suspensionStiffness: 40, suspensionDamping: 7,
+  color: [0.95, 0.95, 0.94],
+};
+
+/** Free-mode garage, in menu order. */
+export const GARAGE = { car: compactSedan, motorcycle, tuktuk, van, bus: cityBus } as const;
+export type GarageKey = keyof typeof GARAGE;

@@ -8,9 +8,17 @@ import { GeometryBuffer, vertexColorMaterial } from '../map/MeshUtil';
 import { HUD } from '../ui/HUD';
 import { MiniMap } from '../ui/MiniMap';
 import { VehicleController } from '../vehicle/VehicleController';
-import { cityBus, compactSedan } from '../vehicle/VehicleConfig';
+import { GARAGE, cityBus, type GarageKey } from '../vehicle/VehicleConfig';
+import { METRO_RED } from '../traffic/VehicleModels';
 import { ModeHUD } from './modes/ModeHUD';
 import { RouteCompare } from './RouteCompare';
+import { Police } from './Police';
+import { Wallet, isRush, lightFor } from './Wallet';
+import { terrainGrid } from '../map/Terrain';
+import { Sound } from '../audio/Sound';
+import { Pedestrians } from '../people/Pedestrians';
+import { Weather } from '../roads/Weather';
+import { Settings, type SettingValues } from '../ui/Settings';
 import { TaxiMode } from './modes/TaxiMode';
 import { MetroBusMode, playableStops, type MetroRoute } from './modes/MetroBusMode';
 import { GameConfig } from './GameConfig';
@@ -47,6 +55,16 @@ export class Game {
   private debug?: TrafficDebugPanel;
   private mode?: { update(dt: number): void };
   private compare?: RouteCompare;
+  private police?: Police;
+  private groundMat!: pc.StandardMaterial;
+  private wallet!: Wallet;
+  private opts!: SettingValues;
+  private settings!: Settings;
+  private saveT = 5;
+  private peds!: Pedestrians;
+  private weather!: Weather;
+  private sound = new Sound();
+  private navToast: (m: string) => void = () => {};
   lastSlow = '';
 
   async start(canvas: HTMLCanvasElement) {
@@ -72,6 +90,7 @@ export class Game {
     this.map = new MapChunkManager(app, new StaticChunkProvider(GameConfig.dataUrl));
     await this.map.init();
     this.buildSea();
+    this.buildTerrain();
 
     // Game mode (free drive / taxi / Lanka Metro bus): menu, or ?mode=free|taxi|metro&route=CM06
     const choice = await chooseMode();
@@ -82,6 +101,9 @@ export class Game {
     const spawn = GameConfig.spawn;
     let [sx, sz] = project(spawn.lat, spawn.lon);
     if (metroStart.length >= 2) [sx, sz] = [metroStart[0].x, metroStart[0].z];
+    const wallet = (this.wallet = new Wallet());
+    const saved = metroRoute || new URLSearchParams(location.search).has('at') ? undefined : wallet.data.pos;
+    if (saved && [saved.x, saved.z].every(Number.isFinite)) [sx, sz] = [saved.x, saved.z];
     const initial = this.map.wanted(sx, sz).slice(0, 9);
     app.start();
     await new Promise<void>(resolve => {
@@ -95,14 +117,17 @@ export class Game {
       tick();
     });
 
-    const cfg = metroRoute ? { ...cityBus, accent: parseInt(metroRoute.colour.slice(1), 16) } : compactSedan;
+    const pick = (new URLSearchParams(location.search).get('vehicle') ?? localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey;
+    const cfg = metroRoute ? { ...cityBus, color: [0.96, 0.96, 0.95] as [number, number, number], accent: METRO_RED } : GARAGE[pick] ?? GARAGE.car;
     this.car = new VehicleController(app, cfg);
     // ?at=lat,lon,heading: exact viewpoint, e.g. to match a reference photograph's position and bearing.
     const at = new URLSearchParams(location.search).get('at')?.split(',').map(Number);
     if (at && at.length >= 2 && at.every(Number.isFinite)) { const [ax, az] = project(at[0], at[1]); this.car.physics.reset(ax, az, -((at[2] ?? 0) * Math.PI) / 180); }
     else if (metroStart.length >= 2) this.placeOnRoad(sx, sz, undefined, metroStart[1].x, metroStart[1].z);
     else this.placeOnRoad(sx, sz, spawn.road ? n => n === spawn.road : undefined);
+    if (!at && !metroRoute && saved && [saved.x, saved.z, saved.yaw].every(Number.isFinite)) this.car.physics.reset(saved.x, saved.z, saved.yaw); // resume where you parked
     const camera = app.root.findByName('camera') as pc.Entity;
+    this.car.physics.surfaceAt = (x, z, y, h) => this.map.roads.surface(x, z, y, h);
     this.cam = new CameraController(camera, canvas);
     this.cam.vehicleLength = cfg.length;
     this.time = new TimeOfDay(app, app.root.findByName('sun') as pc.Entity, camera, this.map.lampMat, this.sky);
@@ -110,17 +135,36 @@ export class Game {
     this.mapView = new MapView(document.getElementById('navmap')!, spawn.lat, spawn.lon);
     const p = this.car.physics;
     this.traffic = new TrafficManager(app, this.map, p);
+    this.peds = new Pedestrians(app, this.map, this.traffic, p);
     const navHud = new NavigationHUD();
+    this.navToast = (m: string) => navHud.toast(m, 5000);
     this.trafficAI = new TrafficIntelligenceService(this.traffic,
       () => ({ road: this.streetName, timeOfDay: this.time.current, signal: this.map.signals.aspect(0) }), msg => navHud.toast(msg, 5000));
     if (import.meta.env.DEV) this.debug = new TrafficDebugPanel(this.traffic, this.trafficAI, this.map.signals, this.time, p);
     this.nav = new NavigationManager(app, navHud, this.mapView, photonGeocoder, osrmRouter, () => p, this.map.index.bounds);
     const modeHud = new ModeHUD((m, ms) => navHud.toast(m, ms));
-    if (choice.mode === 'taxi') this.mode = new TaxiMode(app, this.map, this.nav, p, modeHud, () => this.traffic.lastCollision);
+    if (choice.mode === 'taxi') this.mode = new TaxiMode(app, this.map, this.nav, p, modeHud, () => this.traffic.lastCollision, wallet);
+    this.police = new Police(app, this.map, this.traffic, p, wallet, (m, ms) => navHud.toast(m, ms));
     if (metroRoute) this.mode = new MetroBusMode(app, metroRoute, this.nav, p, modeHud);
     const cmp = new URLSearchParams(location.search).get('compare');
     if (cmp) { this.compare = new RouteCompare(app, p, this.cam, canvas); await this.compare.init(cmp); }
     window.addEventListener('keydown', e => { if (!(e.target instanceof HTMLInputElement)) this.compare?.key(e.code); });
+    this.weather = new Weather(app, [this.map.groundMat, this.groundMat]);
+    this.settings = new Settings(v => {
+      p.manual = v.manual;
+      if (!v.manual && p.gear === 0) p.gear = 1;
+      this.traffic.enabled = v.traffic;
+      this.traffic.policeEnabled = v.police;
+      this.peds.enabled = v.pedestrians;
+      if (!v.police) this.police?.clear();
+      this.weather.set(v.rain);
+      p.grip = v.rain ? 0.68 : 1;      // wet asphalt: ~0.6-0.7 of dry friction
+      this.traffic.rain = v.rain;
+      this.sound.raining = v.rain;
+      this.sound.hornKind = cfg.model === 'motorcycle' || cfg.model === 'tuktuk' ? 'disc' : cfg.model === 'bus' || cfg.model === 'van' ? 'bus' : 'car';
+    });
+    this.opts = this.settings.values;
+    void this.sound.init();
     app.on('update', (dt: number) => this.update(Math.min(dt, 1 / 20)));
   }
 
@@ -154,7 +198,31 @@ export class Game {
     gm.update();
     ground.addComponent('render', { type: 'plane', material: gm, castShadows: false });
     ground.setLocalScale(30000, 1, 30000);
+    ground.setLocalPosition(0, -0.3, 0); // beyond the terrain grid
     app.root.addChild(ground);
+    this.groundMat = gm;
+  }
+
+  /** Ground surface from the FABDEM heightmap: one grid mesh (~30 m cells), sunk 0.25 m so draped roads sit on top. */
+  private buildTerrain() {
+    const t = terrainGrid();
+    if (!t) return;
+    const g = new GeometryBuffer(), C = 0x787359, h = (i: number, j: number) => t.dm[Math.min(t.h - 1, Math.max(0, j)) * t.w + Math.min(t.w - 1, Math.max(0, i))] / 10;
+    for (let j = 0; j < t.h; j++) for (let i = 0; i < t.w; i++) {
+      const nx = (h(i - 1, j) - h(i + 1, j)) / (2 * t.dx), nz = (h(i, j - 1) - h(i, j + 1)) / (2 * t.dz), l = Math.hypot(nx, 1, nz);
+      g.vertex(t.x0 + i * t.dx, h(i, j) - 0.25, t.z0 + j * t.dz, nx / l, 1 / l, nz / l, C);
+    }
+    for (let j = 0; j < t.h - 1; j++) for (let i = 0; i < t.w - 1; i++) {
+      const a = j * t.w + i;
+      g.idx.push(a, a + t.w, a + 1, a + 1, a + t.w, a + t.w + 1);
+    }
+    const mesh = g.toMesh(this.app.graphicsDevice);
+    if (!mesh) return;
+    const mat = vertexColorMaterial(true);
+    mat.diffuse = this.groundMat.diffuse.clone(); mat.diffuseVertexColor = false; mat.update();
+    const e = new pc.Entity('terrain');
+    e.addComponent('render', { meshInstances: [new pc.MeshInstance(mesh, mat)], castShadows: false, receiveShadows: true });
+    this.app.root.addChild(e);
   }
 
   /** Sea from the OSM coastline: each coastline segment extruded westwards to the horizon. */
@@ -193,7 +261,23 @@ export class Game {
     this.car.physics.reset(hit.x + hit.dz * off, hit.z - hit.dx * off, yaw);
   }
 
-  /** Reference comparison: current viewpoint (shareable ?at= link, street-level imagery) + nearest reference photo. */
+  /** Game clock: lighting follows the hour; rush hour ramps traffic in/out over ~15 game minutes. */
+  private wasRush?: boolean;
+  private tickClock(dt: number) {
+    const w = this.wallet;
+    if (this.opts.timeFlow) w.tick(dt);
+    const light = lightFor(w.data.clock) === 'day' && this.opts.rain ? 'overcast' : lightFor(w.data.clock);
+    if (light !== this.time.current) { this.time.set(light); this.hud.setTime(light); }
+    const rush = isRush(w.data.clock);
+    this.traffic.rush += Math.max(-dt / 15, Math.min(dt / 15, (rush ? 1 : 0) - this.traffic.rush));
+    if (this.traffic.rush < 0.02) this.traffic.rush = 0;
+    if (rush !== this.wasRush) {
+      if (this.wasRush !== undefined) this.navToast(rush ? '🚦 Rush hour: Colombo traffic is building up. Expect jams and horns.' : 'Rush hour over: traffic is flowing again.');
+      this.wasRush = rush;
+    }
+  }
+
+    /** Reference comparison: current viewpoint (shareable ?at= link, street-level imagery) + nearest reference photo. */
   private toggleCompare() {
     const el = document.getElementById('compare')!;
     if (!(el.hidden = !el.hidden)) {
@@ -219,9 +303,16 @@ export class Game {
 
   private update(dt: number) {
     const input = this.input;
+    if (input.wasPressed('KeyG') || (this.settings.isOpen && input.wasPressed('Escape'))) { this.settings.toggle(); input.consumeFrame(); return; }
+    if (this.settings.isOpen) { input.consumeFrame(); return; } // paused while the popup is open
     if (input.wasPressed('Escape')) { this.paused = !this.paused; this.hud.setPaused(this.paused); }
     if (input.wasPressed('KeyC')) this.cam.cycle();
-    if (input.wasPressed('KeyN')) { this.time.cycle(); this.hud.setTime(this.time.current); }
+    if (!this.compare) for (let i = 1; i <= 8; i++) if (input.wasPressed('Digit' + i)) this.cam.select(i - 1);
+    // J: jump to the next rush-hour start/end; N: skip the clock forward 3 hours.
+    if (input.wasPressed('KeyJ')) { const c = this.wallet.data.clock, marks = [420, 570, 990, 1140]; this.wallet.data.clock = marks.find(m => m > c + 1) ?? marks[0]; }
+    if (this.opts.manual && input.wasPressed('KeyE')) this.car.physics.shift(1);
+    if (this.opts.manual && input.wasPressed('KeyQ')) this.car.physics.shift(-1);
+    if (input.wasPressed('KeyN')) this.wallet.data.clock = (this.wallet.data.clock + 180) % 1440;
     if (input.wasPressed('KeyM')) { document.getElementById('navmap')!.classList.toggle('big'); this.mapView.resize(); }
     if (input.wasPressed('Slash')) { (document.getElementById('nav-q') as HTMLInputElement).focus(); }
     if (input.wasPressed('KeyP')) this.toggleCompare();
@@ -230,17 +321,25 @@ export class Game {
     if (this.paused) return;
 
     const p = this.car.physics;
-    this.car.update(dt, input.drive(), this.map.collision);
+    this.tickClock(dt);
+    const drive = input.drive();
+    this.car.update(dt, drive, this.map.collision);
+    this.sound.update(dt, p, Math.max(drive.throttle, drive.brake * (p.gear < 0 ? 1 : 0)), drive.horn, this.traffic.rush, !!this.police?.pullingOver, drive.brake, this.traffic.vehicles);
     this.cam.update(dt, p, this.map.collision);
     this.sky.follow(this.camEntity.getPosition());
+    this.weather.update(dt, this.camEntity.getPosition());
     const t0 = performance.now();
     this.map.signals.update(dt);
     this.traffic.update(dt);
+    this.peds.update(dt);
     const t1 = performance.now();
     this.trafficAI.update(dt);
     this.debug?.update();
     this.nav.update(dt, this.streetName);
     this.mode?.update(dt);
+    if (this.opts.police) this.police?.update(dt);
+    if ((this.saveT -= dt) <= 0) { this.saveT = 5; this.wallet.savePosition(p.x, p.z, p.yaw); }
+    this.cam.cinematic = this.police?.shot ?? null;
     const t2 = performance.now();
 
     this.slowTimer -= dt;
@@ -260,7 +359,11 @@ export class Game {
       console.warn(this.lastSlow);
       this.traffic.perf = this.lastSlow;
     }
-    this.hud.update(Math.abs(p.forwardSpeed) * 3.6, p.gearLabel, p.rpm, this.car.cfg.redline, this.streetName, this.cam.mode);
+    // Manual shift advice: up near the auto-box upshift point, down when lugging under load.
+    const c = this.car.cfg, inGear = p.manual && p.gear > 0;
+    const shiftAdvice = !inGear ? (p.manual && p.gear === 0 && drive.throttle ? 1 : 0)
+      : p.rpm > c.shiftUpRpm && p.gear < c.gears.length ? 1 : p.rpm < c.shiftDownRpm * 0.85 && p.gear > 1 ? -1 : 0;
+    this.hud.update(Math.abs(p.forwardSpeed) * 3.6, p.gearLabel, p.rpm, c.redline, this.streetName, this.cam.mode, shiftAdvice);
   }
 }
 
@@ -275,6 +378,9 @@ async function chooseMode(): Promise<{ mode: 'free' | 'taxi' } | { mode: 'metro'
   if (m === 'metro') return metro(q.get('route'));
 
   const el = document.getElementById('modes')!, sel = document.getElementById('metro-route') as HTMLSelectElement;
+  const veh = document.getElementById('vehicle-pick') as HTMLSelectElement;
+  veh.value = localStorage.getItem('cmb-rider-vehicle') ?? 'car';
+  veh.onchange = () => localStorage.setItem('cmb-rider-vehicle', veh.value);
   for (const r of routes) {
     const n = playableStops(r).length, o = document.createElement('option');
     o.value = r.code; o.textContent = `${r.code} · ${r.name} (${n} stops in the city)`; o.disabled = n < 2;

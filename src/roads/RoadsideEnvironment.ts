@@ -1,5 +1,6 @@
 import type { ChunkData, RoadData } from '../map/MapTypes';
 import type { GeometryBuffer } from '../map/MeshUtil';
+import { isElevated } from '../map/RoadNetwork';
 import { box } from './StreetFurniture';
 import { rankOf } from './RoadMarkingGenerator';
 
@@ -119,7 +120,7 @@ function wire(g: GeometryBuffer, ax: number, az: number, bx: number, bz: number,
   for (let i = 0; i < SAG; i++) { const a = b + i * 2; g.idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
 }
 
-export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: GeometryBuffer) {
+export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: GeometryBuffer, posts: number[]) {
   const inBuilding = occupancy(c), onRoad = roadMask(c);
   const blocked = (x: number, z: number, m: number) => inBuilding(x, z, m) || onRoad(x, z, m);
   const near = (x: number, z: number, list: number[] | undefined, stride: number, d: number) => {
@@ -131,19 +132,21 @@ export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: Geom
     !blocked(x, z, m) && !near(x, z, c.junctions, 3, 14) && !near(x, z, c.cr, 5, 6) && !near(x, z, c.sig, 5, 6) && !near(x, z, c.bus, 2, 6);
 
   for (const r of c.roads) {
-    if (r.h === 'service' || r.w < 4) continue;
+    if (r.h === 'service' || r.w < 4 || isElevated(r)) continue;
     const rank = rankOf(r), rnd = rng(r.id);
     const kerb = r.w / 2 + (rank >= 1 ? 2.0 : 1.2);
     walk(r, rank >= 2 ? 22 : 26, (x, z, ux, uz, k) => {  // trees, alternating sides
       const s = k % 2 ? 1 : -1, tx = x + uz * kerb * s, tz = z - ux * kerb * s;
       if (rnd() < (rank >= 2 ? 0.25 : 0.4) || !clear(tx, tz, 1.5)) return;
-      if (rank >= 2) shadeTree(foliage, tx, tz, rnd() < 0.7, rnd);
+      const big = rank >= 2 && rnd() < 0.7;
+      if (rank >= 2) shadeTree(foliage, tx, tz, big, rnd);
       else if (rnd() < 0.45) palm(foliage, tx, tz, rnd); else shadeTree(foliage, tx, tz, false, rnd);
+      posts.push(tx, tz, big ? 0.3 : 0.2);
     });
     if (rank <= 2) walk(r, 55, (x, z, ux, uz) => {          // roadside kades on secondary and smaller streets
       if (rnd() > 0.35) return;
       const s = rnd() < 0.5 ? 1 : -1, off = r.w / 2 + (rank >= 1 ? 2.6 : 1.6) + 1.1, kx = x + uz * off * s, kz = z - ux * off * s;
-      if (clear(kx, kz, 2.2)) kade(solid, kx, kz, -uz * s, ux * s, rnd);
+      if (clear(kx, kz, 2.2)) { kade(solid, kx, kz, -uz * s, ux * s, rnd); posts.push(kx - uz * s * -1.1, kz + ux * s * -1.1, 1.2); }
     });
     // CEB concrete poles on the left kerb every ~35 m, wired together.
     let prev: [number, number] | null = null;
@@ -151,6 +154,7 @@ export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: Geom
       const px = x + uz * (r.w / 2 + 0.5), pz = z - ux * (r.w / 2 + 0.5);
       if (inBuilding(px, pz, 0.3) || onRoad(px, pz, 0.25)) { prev = null; return; }
       box(solid, px, 0, pz, ux, uz, 0.22, 9, 0.22, POLE);
+      posts.push(px, pz, 0.13);
       box(solid, px, 8.3, pz, ux, uz, 1.4, 0.12, 0.12, POLE); // cross-arm
       if (prev && Math.hypot(prev[0] - px, prev[1] - pz) < 45) { wire(solid, prev[0], prev[1], px, pz, 8.4); wire(solid, prev[0] + uz * 0.5, prev[1] - ux * 0.5, px + uz * 0.5, pz - ux * 0.5, 8.4); }
       prev = [px, pz];

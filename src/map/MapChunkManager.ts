@@ -3,6 +3,7 @@ import { GameConfig } from '../game/GameConfig';
 import { buildBuildings, newBuffers, type BuildingBuffers } from './BuildingGenerator';
 import { LandmarkManager } from './Landmarks';
 import { CollisionWorld } from './CollisionWorld';
+import { groundAt, loadTerrain } from './Terrain';
 import type { MapDataProvider } from './MapLoader';
 import type { BuildingData, MapIndex } from './MapTypes';
 import { GeometryBuffer, vertexColorMaterial } from './MeshUtil';
@@ -22,13 +23,15 @@ export class MapChunkManager {
   private pending = new Set<string>();
   private failed = new Set<string>();
   private available = new Set<string>();
-  private groundMat: pc.StandardMaterial;
+  readonly groundMat: pc.StandardMaterial;
   readonly lampMat = lampHeadMaterial();
   private foliageMat = vertexColorMaterial(true);
   readonly signals = new TrafficLightSystem();
   /** Streetlight head positions per loaded chunk [x,y,z,...], for night light pooling. */
   readonly lamps = new Map<string, number[]>();
   /** Signal stop lines per loaded chunk, for traffic AI. (ux,uz) = travel direction. */
+  /** Zebra crossings per loaded chunk [x,z,a,hw,signalled,...] (pedestrians). */
+  readonly crossings = new Map<string, number[]>();
   readonly stops = new Map<string, { x: number; z: number; ux: number; uz: number; hw: number; group: number }[]>();
   private buildingMat = vertexColorMaterial();
   private glassMat = glassMaterial();
@@ -51,6 +54,7 @@ export class MapChunkManager {
 
   async init() {
     this.index = await this.provider.loadIndex();
+    await loadTerrain(`${GameConfig.dataUrl}/terrain.json`);
     try {
       const db = await (await fetch(`${GameConfig.dataUrl}/colombo/route1.json`)).json();
       for (const b of db.buildings) if (b.status !== 'generic') this.overrides.set(b.id, b);
@@ -93,6 +97,7 @@ export class MapChunkManager {
         this.roads.remove(key);
         this.lamps.delete(key);
         this.stops.delete(key);
+        this.crossings.delete(key);
         this.collision.removeChunk(key);
       }
     }
@@ -121,7 +126,7 @@ export class MapChunkManager {
     buildBuildings(data, bufs, lod, this.landmarks.hidden);
     const device = this.app.graphicsDevice;
     const instances: pc.MeshInstance[] = [];
-    const solid = bufs.solid.toMesh(device), glass = bufs.glass.toMesh(device);
+    const solid = bufs.solid.toMesh(device, true), glass = bufs.glass.toMesh(device, true);
     if (solid) instances.push(new pc.MeshInstance(solid, this.buildingMat));
     if (glass) instances.push(new pc.MeshInstance(glass, this.glassMat));
     if (bufs.tanks.length) {
@@ -165,7 +170,7 @@ export class MapChunkManager {
 
       const roadGeo = new GeometryBuffer();
       buildRoads(data, roadGeo);
-      const roadMesh = roadGeo.toMesh(device);
+      const roadMesh = roadGeo.toMesh(device, true);
 
       const instances: pc.MeshInstance[] = [];
       if (roadMesh) {
@@ -176,13 +181,13 @@ export class MapChunkManager {
       if (instances.length) entity.addComponent('render', { meshInstances: instances, castShadows: false, receiveShadows: true });
 
       // Street furniture: static-batched per chunk (one draw call per material).
-      const fb: FurnitureBuffers = { solid: new GeometryBuffer(), lights: Array.from({ length: 6 }, () => new GeometryBuffer()), lampHeads: new GeometryBuffer(), lamps: [] };
+      const fb: FurnitureBuffers = { solid: new GeometryBuffer(), lights: Array.from({ length: 6 }, () => new GeometryBuffer()), lampHeads: new GeometryBuffer(), lamps: [], posts: [] };
       const marks = new GeometryBuffer();
       buildFurniture(data, fb, marks);
       const foliage = new GeometryBuffer();
-      buildRoadside(data, fb.solid, foliage);
+      buildRoadside(data, fb.solid, foliage, fb.posts);
       const furn: pc.MeshInstance[] = [];
-      const add = (gb: GeometryBuffer, mat: pc.Material) => { const m = gb.toMesh(device); if (m) furn.push(new pc.MeshInstance(m, mat)); };
+      const add = (gb: GeometryBuffer, mat: pc.Material) => { const m = gb.toMesh(device, true); if (m) furn.push(new pc.MeshInstance(m, mat)); };
       add(marks, this.groundMat);
       add(fb.solid, this.buildingMat);
       add(fb.lampHeads, this.lampMat);
@@ -193,8 +198,10 @@ export class MapChunkManager {
         fe.addComponent('render', { meshInstances: furn, castShadows: true, receiveShadows: true });
         entity.addChild(fe);
       }
+      for (let i = 0; i < fb.lamps.length; i += 3) fb.lamps[i + 1] += groundAt(fb.lamps[i], fb.lamps[i + 2]);
       this.lamps.set(key, fb.lamps);
       const sig = data.sig ?? [], groups = signalGroups(sig);
+      this.crossings.set(key, data.cr ?? []);
       this.stops.set(key, groups.map((group, k) => ({ x: sig[k * 5], z: sig[k * 5 + 1], ux: Math.sin(sig[k * 5 + 2]), uz: Math.cos(sig[k * 5 + 2]), hw: sig[k * 5 + 3], group })));
 
       const far = this.buildingEntity(data.buildings, 1);
@@ -202,7 +209,7 @@ export class MapChunkManager {
       this.root.addChild(entity);
       this.loaded.set(key, entity);
       this.roads.add(key, data.roads);
-      this.collision.addChunk(key, data.buildings);
+      this.collision.addChunk(key, data.buildings, fb.posts);
     } catch (e) {
       console.warn(`Map chunk ${key} unavailable:`, e);
       this.failed.add(key); // graceful: leave the gap, keep driving

@@ -105,7 +105,10 @@ function van(p: Parts, s: VehicleSpec) {
   details(p, L, W, 0.8, 0.42, 1.25, f + 0.6);
 }
 
+export const METRO_RED = 0xd71f26;
+
 function bus(p: Parts, s: VehicleSpec) {
+  if (s.accent === METRO_RED) return metroBus(p, s);
   const L = s.length, W = s.width, H = s.height, f = -L / 2, r = L / 2, c = s.color!;
   extrude(p.paint, [[f, 0.45], [f, 1.3], [r, 1.3], [r, 0.45]], () => W / 2, c);
   extrude(p.glass, [[f, 1.3], [f + 0.25, H - 0.35], [r, H - 0.35], [r, 1.3]], () => W / 2 - 0.02, 0xffffff);
@@ -121,6 +124,38 @@ function bus(p: Parts, s: VehicleSpec) {
   details(p, L, W, 0.75, 0.5, 2.0, f + 0.1);
 }
 
+/**
+ * Lanka Metro Transit (Foton low-floor) livery: red front and rear caps, white body, red diagonal wedges low at the
+ * front and rear of each side, big tinted windows almost to the roof, black screen band, white roof AC pod.
+ */
+function metroBus(p: Parts, s: VehicleSpec) {
+  const L = s.length, W = s.width, H = s.height, f = -L / 2, r = L / 2, RED = METRO_RED, WHITE = 0xf4f4f2;
+  extrude(p.paint, [[f + 0.3, 0.35], [f + 0.3, 1.05], [r - 0.3, 1.05], [r - 0.3, 0.35]], () => W / 2, WHITE);         // white lower body
+  extrude(p.glass, [[f + 0.3, 1.05], [f + 0.3, H - 0.32], [r - 0.3, H - 0.32], [r - 0.3, 1.05]], () => W / 2 - 0.01, 0xffffff); // windows
+  extrude(p.paint, [[f + 0.3, H - 0.32], [f + 0.3, H], [r - 0.3, H], [r - 0.3, H - 0.32]], () => W / 2, WHITE);       // roof rail
+  // Red front cap: bumper, black windscreen band, rounded top; white chevron under the screen.
+  extrude(p.paint, [[f, 0.3], [f - 0.02, 0.75], [f + 0.3, 0.75], [f + 0.3, 0.3]], () => W / 2, RED);
+  extrude(p.paint, [[f - 0.02, 0.75], [f - 0.02, 0.95], [f + 0.3, 0.95], [f + 0.3, 0.75]], () => W / 2, WHITE);
+  extrude(p.glass, [[f - 0.02, 0.95], [f + 0.02, H - 0.35], [f + 0.3, H - 0.35], [f + 0.3, 0.95]], () => W / 2 - 0.08, 0xffffff);
+  extrude(p.paint, [[f + 0.02, H - 0.35], [f + 0.12, H], [f + 0.3, H], [f + 0.3, H - 0.35]], () => W / 2, RED);
+  for (const side of [-1, 1]) box(p.paint, side * (W / 2 - 0.04), 0.3, f + 0.12, 0, -1, 0.08, H - 0.3, 0.32, RED); // front corner pillars
+  // Red rear cap.
+  extrude(p.paint, [[r - 0.3, 0.3], [r - 0.3, H], [r - 0.1, H], [r, H - 0.3], [r, 0.3]], () => W / 2, RED);
+  // Side wedges (both sides): low red triangle behind the front wheel and a big one sweeping up at the rear.
+  for (const prof of [[[f + 0.3, 0.35], [f + 1.7, 0.35], [f + 0.3, 1.05]], [[r - 3.6, 0.35], [r - 0.3, 0.35], [r - 0.3, 1.05], [r - 1.4, 1.05]]] as Prof[])
+    extrude(p.paint, prof, () => W / 2 + 0.012, RED);
+  for (let k = 0; k < 4; k++) for (const side of [-1, 1]) box(p.paint, side * (W / 2 + 0.013), 0.45 + k * 0.15, f + 3.55, 0, -1, 0.01, 0.08, 0.25, RED); // red bars by the door
+  // Window pillars, doors (kerb side = left), destination display, roof AC pod.
+  for (let z = f + 1.9; z < r - 0.6; z += 1.5) for (const side of [-1, 1]) box(p.trim, side * (W / 2 + 0.005), 1.05, z, 0, -1, 0.02, H - 1.37, 0.07, 0x1a1a1a);
+  for (const z of [f + 1.2, f + 4.6]) box(p.glass, -(W / 2 + 0.01), 0.35, z, 0, -1, 0.02, H - 0.7, 1.1, 0xffffff);
+  box(p.trim, 0, H - 0.55, f - 0.03, 0, -1, W - 0.6, 0.22, 0.03, 0x0a0a0a);
+  box(p.trim, 0, H - 0.52, f - 0.04, 0, -1, W - 0.9, 0.14, 0.02, AMBER);
+  box(p.paint, 0, H, -0.5, 0, -1, W - 0.5, 0.28, 3.2, WHITE);
+  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.35), 0.55, f - 0.025, 0, -1, 0.45, 0.14, 0.04, LAMP); // LED headlamps
+  for (const z of [f + 2.0, r - 2.5]) for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.32), z, 0.5, 0.3, 0x5a5d60);
+  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.3), 0.6, r + 0.01, 0, -1, 0.2, 0.3, 0.03, TAIL);
+}
+
 function lorry(p: Parts, s: VehicleSpec) {
   const L = s.length, W = s.width, H = s.height, f = -L / 2, r = L / 2, cab = 1.9, c = s.color!;
   extrude(p.paint, [[f, 0.55], [f, 1.45], [f + 0.1, 1.55], [f + cab, 1.55], [f + cab, 0.55]], () => W / 2, c);
@@ -133,21 +168,45 @@ function lorry(p: Parts, s: VehicleSpec) {
   details(p, L, W, 0.85, 0.6, 2.1, f + 0.2);
 }
 
+/**
+ * Bajaj RE-style three-wheeler, modelled on the classic Colombo tuk-tuk: narrow rounded front cowl with one headlamp
+ * and a contrasting (usually yellow) upper cowl + windscreen frame, black canvas hood that wraps down the back,
+ * open sides, a pressed-steel passenger tub, blue vinyl bench, front mudguard over the single wheel.
+ */
 function tuktuk(p: Parts, s: VehicleSpec) {
-  const L = s.length, W = s.width, f = -L / 2, r = L / 2, c = s.color!;
-  // Tapered front cowl with the single headlamp, wider passenger tub behind.
-  extrude(p.paint, [[f + 0.05, 0.3], [f, 0.95], [f + 0.25, 1.05], [f + 0.75, 1.0], [f + 0.85, 0.3]], () => 0.42, c);
-  extrude(p.paint, [[f + 0.8, 0.3], [f + 0.8, 0.85], [r - 0.15, 0.85], [r, 0.7], [r, 0.3]], taper(W / 2, 0.3, 0.85, 0.04), c);
-  extrude(p.glass, [[f + 0.25, 1.05], [f + 0.5, 1.55], [f + 0.6, 1.55], [f + 0.75, 1.0]], () => W / 2 - 0.12, 0xffffff); // windscreen
-  // Rounded black canvas canopy.
-  extrude(p.trim, [[f + 0.45, 1.55], [f + 0.6, 1.72], [r - 0.35, 1.75], [r - 0.05, 1.6], [r, 0.95], [r - 0.08, 0.95], [r - 0.12, 1.55]], () => W / 2 + 0.02, BLACK);
-  box(p.trim, 0, 0.85, 0.15, 0, -1, W - 0.2, 0.08, 0.9, 0x3a2a22);  // bench seat
-  box(p.trim, 0, 0.9, -0.35, 0, -1, 0.42, 0.55, 0.32, 0x5c4030);    // driver
-  box(p.trim, 0, 1.45, -0.35, 0, -1, 0.22, 0.24, 0.22, 0x2a1c14);
-  box(p.trim, 0, 0.82, f - 0.01, 0, -1, 0.2, 0.18, 0.05, LAMP);
-  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.18), 0.55, r + 0.01, 0, -1, 0.14, 0.1, 0.04, TAIL);
-  box(p.trim, 0, 0.45, r + 0.02, 0, -1, 0.45, 0.13, 0.02, PLATE);
-  wheel(p, 0, f + 0.42, 0.22, 0.12);
+  const L = s.length, W = s.width, f = -L / 2, r = L / 2, c = s.color!, top = s.accent ?? 0xf2c230, SEAT = 0x2a3f8f;
+  // Front cowl: lower in body colour, upper (dash + screen surround) in the accent colour, rounded nose.
+  extrude(p.paint, [[f + 0.02, 0.32], [f - 0.02, 0.6], [f + 0.02, 0.82], [f + 0.6, 0.82], [f + 0.7, 0.32]], taper(0.4, 0.32, 0.82, 0.06), c);
+  extrude(p.paint, [[f + 0.02, 0.82], [f + 0.1, 1.02], [f + 0.62, 1.0], [f + 0.6, 0.82]], taper(0.42, 0.82, 1.02, 0.05), top);
+  // Windscreen (slightly raked) with accent frame and a centre bar, roof pillars back to the hood.
+  extrude(p.glass, [[f + 0.12, 1.02], [f + 0.2, 1.56], [f + 0.24, 1.56], [f + 0.16, 1.02]], () => 0.4, 0xffffff);
+  for (const side of [-1, 1]) {
+    box(p.paint, side * 0.42, 1.0, f + 0.17, 0, -1, 0.05, 0.6, 0.05, top);                     // screen frame sides
+    box(p.trim, side * (W / 2 - 0.04), 0.85, f + 0.75, 0, -1, 0.04, 0.85, 0.04, BLACK);         // front hood stays
+  }
+  box(p.paint, 0, 1.56, f + 0.21, 0, -1, 0.86, 0.06, 0.08, top);                                 // screen header
+  box(p.trim, 0, 1.0, f + 0.2, 0, -1, 0.025, 0.56, 0.02, BLACK);                                  // wiper / centre bar
+  // Passenger tub: pressed steel, wider than the cowl, rounded rear corners; open above the waistline.
+  extrude(p.paint, [[f + 0.6, 0.3], [f + 0.6, 0.86], [r - 0.12, 0.86], [r, 0.74], [r, 0.3]], taper(W / 2, 0.3, 0.86, 0.04), c);
+  for (const y of [0.45, 0.6]) for (const side of [-1, 1]) box(p.trim, side * (W / 2 + 0.005), y, 0.25, 0, -1, 0.01, 0.025, L * 0.5, 0x0e0e0e); // side ribs
+  // Black canvas hood: rounded, overhangs the screen, wraps down the back with a small rear window.
+  extrude(p.trim, [[f + 0.12, 1.58], [f + 0.25, 1.72], [r - 0.3, 1.77], [r - 0.04, 1.65], [r + 0.02, 0.86], [r - 0.06, 0.86], [r - 0.1, 1.58]], () => W / 2 + 0.03, 0x161616);
+  extrude(p.glass, [[r - 0.05, 1.25], [r - 0.03, 1.5], [r + 0.03, 1.5], [r + 0.03, 1.25]], () => 0.22, 0xffffff);
+  // Interior: blue bench + backrest, driver's seat, handlebar, driver.
+  box(p.trim, 0, 0.82, r - 0.55, 0, -1, W - 0.16, 0.12, 0.55, SEAT);
+  box(p.trim, 0, 0.94, r - 0.22, 0, -1, W - 0.16, 0.6, 0.12, SEAT);
+  box(p.trim, 0, 0.82, -0.1, 0, -1, 0.42, 0.1, 0.38, SEAT);
+  box(p.trim, 0, 1.12, f + 0.55, 0, -1, 0.62, 0.035, 0.035, CHROME);                             // handlebar
+  box(p.trim, 0, 0.92, -0.1, 0, -1, 0.4, 0.5, 0.28, s.rider ?? 0x5a6a8a);                         // driver
+  box(p.trim, 0, 1.42, -0.1, 0, -1, 0.21, 0.24, 0.22, 0x5c3e2a);
+  box(p.trim, 0, 1.62, -0.08, 0, -1, 0.23, 0.07, 0.23, 0x141010);
+  // Front: round headlamp on the nose, indicators, mudguard over the wheel; rear lamps + plate.
+  box(p.trim, 0, 0.66, f - 0.04, 0, -1, 0.18, 0.18, 0.06, LAMP);
+  for (const side of [-1, 1]) box(p.trim, side * 0.3, 0.88, f + 0.06, 0, -1, 0.06, 0.05, 0.04, AMBER);
+  extrude(p.trim, [[f - 0.12, 0.42], [f - 0.05, 0.5], [f + 0.4, 0.5], [f + 0.45, 0.4], [f + 0.38, 0.44], [f - 0.05, 0.44]], () => 0.08, BLACK);
+  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.16), 0.58, r + 0.01, 0, -1, 0.12, 0.1, 0.04, TAIL);
+  box(p.trim, 0, 0.42, r + 0.02, 0, -1, 0.42, 0.13, 0.02, PLATE);
+  wheel(p, 0, f + 0.15, 0.22, 0.12);
   for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.1), r - 0.45, 0.22, 0.14);
 }
 
@@ -203,10 +262,11 @@ export function randomLook(spec: VehicleSpec, r: () => number): Look {
     case 'van': return { color: vary(r() < 0.1 ? 0xe8c21a /* school van */ : pickW(r, CAR_PAINT.slice(0, 4)), k) };
     case 'bus': {
       if (r() < 0.4) return { color: 0x9a1b1b }; // SLTB
+      if (r() < 0.3) return { color: 0xf4f4f2, accent: METRO_RED }; // Lanka Metro Transit
       return { color: any([0x2a63c8, 0xe6e6e6, 0xd65a1a, 0x1f8a4a, 0x7a1f8a, 0xc81e3a, 0x1a1a1a]), accent: any([0xf2c230, 0xffffff, 0x2ab0e0, 0xe02a6a, 0x30c060]) };
     }
     case 'lorry': return { color: any([0x2a5aa8, 0xd8b21a, 0xe8e8e8, 0x2f7a3a, 0xb02020]), accent: any([0x6a5a3a, 0x3a4a6a, 0x8a2a1a]), cargo: any([0x4e5a3a, 0x2a3a6a, 0x6a6a6a, 0x8a6a3a]) };
-    case 'tuktuk': return { color: vary(any([0x7a1424, 0x7a1424, 0xb0181f, 0x1d5e2a, 0x1b3f8a, 0x151515, 0xd6a417, 0x2a7a8a]), k) };
+    case 'tuktuk': return { color: vary(any([0x151515, 0x151515, 0x7a1424, 0xb0181f, 0x1d5e2a, 0x1b3f8a, 0x2a7a8a]), k), accent: any([0xf2c230, 0xf2c230, 0x151515, 0xd8d8d0]) };
     case 'motorcycle': return { color: any([0x151515, 0x151515, 0xb0181f, 0x1b3f8a, 0xdedede, 0x5a5a5a, 0x1d6a2a]), accent: r() < 0.4 ? 1 : 0,
       rider: any([0x2a3a5a, 0xe8e8e8, 0x8a2a2a, 0x3a3a3a, 0x5a7a9a, 0x2a5a3a]), helmet: any([0xdedede, 0x151515, 0xb0181f, 0x1b3f8a, 0xd6a417]) };
   }

@@ -9,6 +9,7 @@ export interface RoadData {
   o: boolean;     // oneway
   l?: number;     // OSM lanes tag (total, both directions)
   p: number[];    // polyline
+  y?: number[];   // deck height (m) per vertex: flyovers / elevated highways from OSM bridge+layer
 }
 
 export interface BuildingData {

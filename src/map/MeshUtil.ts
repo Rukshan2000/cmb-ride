@@ -1,4 +1,5 @@
 import * as pc from 'playcanvas';
+import { groundAt } from './Terrain';
 
 /** Growable vertex/index buffers with per-vertex colour, turned into one pc.Mesh. */
 export class GeometryBuffer {
@@ -18,10 +19,13 @@ export class GeometryBuffer {
   /** Quad from the last 4 vertices added (a,b,c,d in winding order). */
   quad(a: number) { this.idx.push(a, a + 1, a + 2, a, a + 2, a + 3); }
 
-  toMesh(device: pc.GraphicsDevice): pc.Mesh | null {
+  /** onGround: world-space geometry; every vertex is lifted by the terrain height under it (gentle hills). */
+  toMesh(device: pc.GraphicsDevice, onGround = false): pc.Mesh | null {
     if (!this.idx.length) return null;
     const mesh = new pc.Mesh(device);
-    mesh.setPositions(this.pos);
+    let pos = this.pos;
+    if (onGround) { pos = pos.slice(); for (let i = 0; i < pos.length; i += 3) pos[i + 1] += groundAt(pos[i], pos[i + 2]); }
+    mesh.setPositions(pos);
     mesh.setNormals(this.nrm);
     mesh.setColors32(this.col);
     mesh.setUvs(0, this.pos.filter((_, i) => i % 3 !== 1).map(v => v / 7)); // planar XZ, 7 m tiles

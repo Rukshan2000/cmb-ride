@@ -3,6 +3,7 @@ import type { GeometryBuffer } from '../map/MeshUtil';
 import { ribbon } from '../map/RoadMeshBuilder';
 import { rankOf } from './RoadMarkingGenerator';
 import { roadMask } from './RoadsideEnvironment';
+import { isElevated } from '../map/RoadNetwork';
 
 // Crossings, signals, streetlights and bus stops for one chunk.
 const TOP_Y = 0.135; // stop lines / zebras sit above junction pads
@@ -14,6 +15,7 @@ export interface FurnitureBuffers {
   lights: GeometryBuffer[];   // [group*3 + (0 red,1 amber,2 green)] signal lenses
   lampHeads: GeometryBuffer;  // streetlight heads (emissive at night)
   lamps: number[];            // [x,y,z,...] lamp head positions for light pooling
+  posts: number[];            // [x,z,halfSize,...] solid poles/trunks for collision
 }
 
 /** Oriented box. (ux,uz) = local forward, centred at (x, y0..y0+h, z). */
@@ -71,6 +73,7 @@ export function buildFurniture(c: ChunkData, b: FurnitureBuffers, markings: Geom
     const px = x + lx * (hw + 0.8) + ux * 0.6, pz = z + lz * (hw + 0.8) + uz * 0.6;
     if (onRoad(px, pz, 0.2)) continue; // junction geometry: pole would stand on the crossing road
     box(b.solid, px, 0, pz, ux, uz, 0.14, 3.4, 0.14, POLE);
+    b.posts.push(px, pz, 0.1);
     box(b.solid, px, 3.4, pz, ux, uz, 0.4, 1.15, 0.3, HOUSING);
     const grp = groups[i / 5];
     [3.0 + 0.85, 3.0 + 0.5, 3.0 + 0.15].forEach((h, k) =>   // red top, amber, green
@@ -97,17 +100,21 @@ export function buildFurniture(c: ChunkData, b: FurnitureBuffers, markings: Geom
     }
   }
 
+  // --- Flyovers: concrete deck edge (fascia), parapet walls, soffit and piers. Piers are solid for collision.
+  for (const r of c.roads) if (isElevated(r)) flyover(b, r);
+
   // --- Streetlights: real OSM lamps plus (approximation) staggered single-arm poles on major roads.
   const lamp = (x: number, z: number, ax: number, az: number, reach: number) => {
     if (onRoad(x, z, 0.3)) return; // dual carriageways / junctions: pole would land on another road
     box(b.solid, x, 0, z, ax, az, 0.18, 8.5, 0.18, POLE);
+    b.posts.push(x, z, 0.12);
     box(b.solid, x + ax * reach / 2, 8.3, z + az * reach / 2, ax, az, 0.08, 0.1, reach, POLE);
     const hx = x + ax * reach, hz = z + az * reach;
     box(b.lampHeads, hx, 8.05, hz, ax, az, 0.3, 0.2, 0.6, 0xffffff);
     b.lamps.push(hx, 7.9, hz);
   };
   for (const r of c.roads) {
-    if (rankOf(r) < 2) continue;
+    if (rankOf(r) < 2 || isElevated(r)) continue;
     const p = r.p;
     let acc = 0, k = Math.floor(r.id % 2);
     for (let i = 0; i < p.length / 2 - 1; i++) {
@@ -158,4 +165,45 @@ function nearestRoad(roads: RoadData[], x: number, z: number) {
   }
   if (best && best.dist < 0.01) { const p = best.road.p, l = Math.hypot(p[2] - p[0], p[3] - p[1]) || 1; best.nx = -(p[3] - p[1]) / l; best.nz = (p[2] - p[0]) / l; }
   return best && best.dist < 40 ? best : null;
+}
+
+const DECK = 0xb4b0a6, PARAPET = 0xc8c4ba, PIER = 0xa8a49a;
+
+/** Vertical wall strip along polyline p at lateral offset off, from y+lo to y+hi (y per vertex). */
+function wallStrip(g: GeometryBuffer, p: number[], y: number[], off: number, lo: number, hi: number, c: number) {
+  const n = p.length / 2;
+  for (let i = 0; i < n - 1; i++) {
+    const ax = p[i * 2], az = p[i * 2 + 1], bx = p[i * 2 + 2], bz = p[i * 2 + 3];
+    const l = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / l, nz = (bx - ax) / l;
+    const v = g.vertexCount;
+    g.vertex(ax + nx * off, y[i] + lo, az + nz * off, nx, 0, nz, c); g.vertex(bx + nx * off, y[i + 1] + lo, bz + nz * off, nx, 0, nz, c);
+    g.vertex(bx + nx * off, y[i + 1] + hi, bz + nz * off, nx, 0, nz, c); g.vertex(ax + nx * off, y[i] + hi, az + nz * off, nx, 0, nz, c);
+    g.idx.push(v, v + 1, v + 2, v, v + 2, v + 3, v, v + 2, v + 1, v, v + 3, v + 2);
+  }
+}
+
+function flyover(b: FurnitureBuffers, r: RoadData) {
+  const y = r.y!, hw = r.w / 2, THICK = 1.1;
+  for (const s of [-1, 1]) {
+    wallStrip(b.solid, r.p, y, s * (hw + 0.3), -THICK, 0.06, DECK);        // deck edge / fascia
+    wallStrip(b.solid, r.p, y, s * (hw + 0.15), 0.06, 1.0, PARAPET);       // parapet (outer face)
+    wallStrip(b.solid, r.p, y, s * (hw - 0.05), 0.06, 1.0, PARAPET);       // parapet (inner face)
+  }
+  ribbon(b.solid, r.p, hw + 0.3, y.map(v => v - THICK), DECK);           // soffit (underside)
+  // Piers every ~30 m where the deck is high enough to need one.
+  let acc = 0;
+  for (let i = 0; i < r.p.length / 2 - 1; i++) {
+    const x0 = r.p[i * 2], z0 = r.p[i * 2 + 1], dx = r.p[i * 2 + 2] - x0, dz = r.p[i * 2 + 3] - z0, len = Math.hypot(dx, dz);
+    if (len < 0.01) continue;
+    const ux = dx / len, uz = dz / len;
+    for (let t = (30 - (acc % 30)) % 30; t < len; t += 30) {
+      const h = y[i] + (y[i + 1] - y[i]) * (t / len) - THICK;
+      if (h < 2.2) continue;
+      const px = x0 + ux * t, pz = z0 + uz * t;
+      box(b.solid, px, 0, pz, ux, uz, Math.min(r.w * 0.55, 6), h, 1.4, PIER);
+      box(b.solid, px, h - 0.6, pz, ux, uz, r.w + 0.4, 0.6, 1.6, PIER);   // pier cap
+      b.posts.push(px - uz * 1.2, pz + ux * 1.2, 0.8, px + uz * 1.2, pz - ux * 1.2, 0.8); // two 1.6 m squares across the pier
+    }
+    acc += len;
+  }
 }

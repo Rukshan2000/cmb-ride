@@ -27,21 +27,29 @@
     <div id="mode-panel" class="panel mode" hidden><span class="label" id="mode-title"></span><b id="mode-job"></b><small id="mode-detail"></small><small id="mode-stats"></small></div>
     <div class="panel dash">
       <div class="speed"><span id="speed">0</span><small>km/h</small></div>
-      <div class="gear"><span class="label">GEAR</span><span id="gear">N</span></div>
-      <div class="rpm"><span class="label">RPM</span><div class="bar"><div id="rpm"></div></div></div>
+      <canvas id="tacho" width="180" height="150" aria-label="Rev counter and gear"></canvas>
+      <div id="shift-hint" aria-live="polite"></div>
     </div>
-    <div class="help">W/S drive · A/D steer · Space handbrake · C camera · R reset · N time of day · P compare view · M map size · / search · Esc pause</div>
+    <div class="help">W/S drive · A/D steer · Space handbrake · E/Q shift (manual) · H horn · G settings · J rush hour · C camera · R reset · N time of day · P compare view · M map size · / search · Esc pause</div>
   </div>
   <div id="loading" class="overlay"><div class="panel">LOADING COLOMBO MAP DATA<div class="bar"><div id="load-bar"></div></div></div></div>
   <div id="modes" class="overlay" hidden><div class="panel menu">
     <span class="label">CMB RIDER · CHOOSE A MODE</span>
+    <label class="vehicle-row">Vehicle (free drive &amp; taxi)
+      <select id="vehicle-pick">
+        <option value="car">Car · Axio-class hybrid sedan</option>
+        <option value="motorcycle">Motorcycle · 150 cc commuter</option>
+        <option value="tuktuk">Tuk-tuk · three-wheeler</option>
+        <option value="van">Van · HiAce-class diesel</option>
+        <option value="bus">Bus · 10.5 m city bus</option>
+      </select></label>
     <button data-mode="free">Free drive<small>Explore Colombo at your own pace</small></button>
     <button data-mode="taxi">Taxi<small>Pick up passengers who hail you and drop them at real Colombo places</small></button>
     <div class="metro-row"><button data-mode="metro">Metro bus<small>Drive a Lanka Metro route: stop at every real stop, board passengers</small></button>
       <select id="metro-route"></select></div>
   </div></div>
   <div id="pause" class="overlay" hidden><div class="panel">PAUSED<small>Press Esc to resume</small></div></div>
-  <div id="attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Reference photos © <a href="https://www.mapillary.com" target="_blank" rel="noopener">Mapillary</a> contributors, CC BY-SA · Building heights mostly estimated</div>
+  <div id="attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Reference photos © <a href="https://www.mapillary.com" target="_blank" rel="noopener">Mapillary</a> contributors, CC BY-SA · Terrain: <a href="https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn" target="_blank" rel="noopener">FABDEM</a> © University of Bristol, CC BY-NC-SA 4.0 · Building heights mostly estimated</div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

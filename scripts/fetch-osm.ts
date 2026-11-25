@@ -65,6 +65,73 @@ function roadWidth(t: Record<string, string>): number {
   return t.highway.endsWith('_link') ? 6.5 : DEFAULT_WIDTH[base] ?? 6;
 }
 
+// --- Flyovers: OSM bridge=* + layer>=1 road ways -> deck height per vertex. -----------------------------------
+// Bridge ways are joined into connected structures; wherever a structure meets a ground-level road (shared node)
+// or dead-ends, the deck is at 0 and ramps up over RAMP metres along the structure. Short crossings (canal
+// bridges, culverts) stay flat. ponytail: heights are typical (6.5 m / 11 m per layer), not surveyed.
+const RAMP = 110, MIN_STRUCTURE = 90;
+
+function bridgeHeights(all: OsmWay[]): Map<number, { p: number[]; y: number[] }> {
+  const isBridge = (t: Record<string, string>) => !!t.highway && !!t.bridge && t.bridge !== 'no' && (parseInt(t.layer ?? '1') || 1) >= 1;
+  const bridges = all.filter(w => w.tags && isBridge(w.tags) && w.nodes);
+  const ground = new Set<number>();
+  for (const w of all) if (w.tags?.highway && !isBridge(w.tags) && w.nodes) for (const n of w.nodes) ground.add(n);
+
+  const pos = new Map<number, [number, number]>(), adj = new Map<number, [number, number][]>(), deck = new Map<number, number>(), uses = new Map<number, number>();
+  for (const w of bridges) {
+    const layer = Math.min(3, parseInt(w.tags!.layer ?? '1') || 1), H = layer >= 2 ? 11 : 6.5;
+    w.nodes.forEach((n, i) => {
+      pos.set(n, project(w.geometry[i].lat, w.geometry[i].lon));
+      deck.set(n, Math.max(deck.get(n) ?? 0, H));
+      uses.set(n, (uses.get(n) ?? 0) + (i === 0 || i === w.nodes.length - 1 ? 1 : 2));
+      if (i) {
+        const a = w.nodes[i - 1], [ax, az] = pos.get(a)!, [bx, bz] = pos.get(n)!, d = Math.hypot(bx - ax, bz - az);
+        (adj.get(a) ?? adj.set(a, []).get(a)!).push([n, d]);
+        (adj.get(n) ?? adj.set(n, []).get(n)!).push([a, d]);
+      }
+    });
+  }
+  // Connected structures, their length, and anchors (ground connections or dead ends).
+  const comp = new Map<number, number>(), compLen: number[] = [];
+  for (const start of adj.keys()) {
+    if (comp.has(start)) continue;
+    const id = compLen.length; let len = 0; const stack = [start]; comp.set(start, id);
+    while (stack.length) for (const [m, d] of adj.get(stack.pop()!)!) { len += d / 2; if (!comp.has(m)) { comp.set(m, id); stack.push(m); } }
+    compLen.push(len);
+  }
+  const dist = new Map<number, number>(), queue: [number, number][] = [];
+  for (const n of adj.keys()) if (ground.has(n) || uses.get(n) === 1) { dist.set(n, 0); queue.push([0, n]); }
+  while (queue.length) { // Dijkstra (small graph: plain sort is fine)
+    queue.sort((a, b) => a[0] - b[0]);
+    const [d, n] = queue.shift()!;
+    if (d > dist.get(n)!) continue;
+    for (const [m, e] of adj.get(n)!) if (d + e < (dist.get(m) ?? Infinity)) { dist.set(m, d + e); queue.push([d + e, m]); }
+  }
+  // Densify every ~15 m so ramps are smooth even where OSM has only end nodes; distance to the nearest anchor
+  // along a segment is min(dA + t, dB + (L - t)).
+  const out = new Map<number, { p: number[]; y: number[] }>();
+  const height = (d: number, H: number) => { const s = Math.min(1, d / RAMP); return r1(H * s * s * (3 - 2 * s)); };
+  for (const w of bridges) {
+    if (compLen[comp.get(w.nodes[0])!] < MIN_STRUCTURE) continue;
+    const p: number[] = [], y: number[] = [];
+    w.nodes.forEach((n, i) => {
+      const [bx, bz] = pos.get(n)!, dB = dist.get(n) ?? Infinity;
+      if (i) {
+        const a = w.nodes[i - 1], [ax, az] = pos.get(a)!, dA = dist.get(a) ?? Infinity, L = Math.hypot(bx - ax, bz - az);
+        const H = Math.max(deck.get(a)!, deck.get(n)!), steps = Math.floor(L / 15);
+        for (let k = 1; k < steps; k++) {
+          const t = (k / steps) * L;
+          p.push(r1(ax + ((bx - ax) * t) / L), r1(az + ((bz - az) * t) / L));
+          y.push(height(Math.min(dA + t, dB + L - t), H));
+        }
+      }
+      p.push(r1(bx), r1(bz)); y.push(height(dB, deck.get(n)!));
+    });
+    out.set(w.id, { p, y });
+  }
+  return out;
+}
+
 // OSM building/amenity/shop tags -> the architectural class the generator styles by.
 function classify(t: Record<string, string>, area: number, zone?: Zone): BuildingKind {
   const b = t.building;
@@ -224,6 +291,9 @@ async function main() {
     }
   }
 
+  const elev = bridgeHeights([...ways.values()]);
+  console.log(`elevated road ways: ${elev.size}`);
+
   const chunks = new Map<string, ChunkData>();
   const chunkOf = (x: number, z: number) => {
     const key = `${Math.floor(x / CHUNK)}_${Math.floor(z / CHUNK)}`;
@@ -244,7 +314,8 @@ async function main() {
 
     if (t.highway) {
       if (t.area === 'yes') continue;
-      const p = flat(w.geometry);
+      const ev = elev.get(w.id);
+      const p = ev ? ev.p : flat(w.geometry);
       const width = roadWidth(t);
       if (parseFloat(t.width) > 2 || parseInt(t.lanes) > 0) taggedWidth.add(w.id);
       const road: Omit<RoadData, 'p'> = { id: w.id, n: t['name:en'] ?? t.name ?? '', h: t.highway, w: width, o: t.oneway === 'yes' || t.junction === 'roundabout' };
@@ -252,28 +323,33 @@ async function main() {
       if (lanes > 0) road.l = lanes;
       roadCount++;
       // Split the polyline into runs by chunk (segment midpoint), overlapping by one vertex.
-      let run: number[] = [p[0], p[1]];
+      const ys = ev?.y;
+      let run: number[] = [p[0], p[1]], runY: number[] = ys ? [ys[0]] : [];
       let runKey = '';
+      const flush = () => chunks.get(runKey)!.roads.push(ys ? { ...road, p: run, y: runY } : { ...road, p: run });
       for (let i = 1; i < p.length / 2; i++) {
         const mx = (p[i * 2 - 2] + p[i * 2]) / 2, mz = (p[i * 2 - 1] + p[i * 2 + 1]) / 2;
         const key = `${Math.floor(mx / CHUNK)}_${Math.floor(mz / CHUNK)}`;
         if (runKey && key !== runKey) {
-          chunks.get(runKey)!.roads.push({ ...road, p: run });
+          flush();
           run = [p[i * 2 - 2], p[i * 2 - 1]];
+          runY = ys ? [ys[i - 1]] : [];
         }
         if (!runKey || key !== runKey) { runKey = key; chunkOf(mx, mz); }
         run.push(p[i * 2], p[i * 2 + 1]);
+        if (ys) runY.push(ys[i]);
       }
-      chunks.get(runKey)!.roads.push({ ...road, p: run });
+      flush();
 
+      const np = ev ? flat(w.geometry) : p; // node-indexed (densified flyovers have extra vertices)
       w.nodes.forEach((id, i) => {
-        const u = nodeUse.get(id) ?? { count: 0, width: 0, x: p[i * 2], z: p[i * 2 + 1] };
+        const u = nodeUse.get(id) ?? { count: 0, width: 0, x: np[i * 2], z: np[i * 2 + 1] };
         u.count += i === 0 || i === w.nodes.length - 1 ? 1 : 2;
         u.width = Math.max(u.width, width);
         nodeUse.set(id, u);
         let nr = nodeRoads.get(id);
         if (!nr) nodeRoads.set(id, (nr = []));
-        nr.push({ p, i, w: width, o: road.o });
+        nr.push({ p: np, i, w: width, o: road.o });
       });
       continue;
     }

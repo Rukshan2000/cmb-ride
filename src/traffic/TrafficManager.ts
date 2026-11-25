@@ -1,6 +1,8 @@
 import * as pc from 'playcanvas';
 import type { MapChunkManager } from '../map/MapChunkManager';
 import type { RoadData } from '../map/MapTypes';
+import { isElevated } from '../map/RoadNetwork';
+import { groundAt } from '../map/Terrain';
 import type { VehiclePhysics } from '../vehicle/VehiclePhysics';
 import { CATALOG, PROFILES, pickProfile, pickSpec, type Category, type ProfileName, type VehicleSpec } from './VehicleCatalog';
 import { ModelCache, randomLook } from './VehicleModels';
@@ -10,6 +12,7 @@ import { ModelCache, randomLook } from './VehicleModels';
 // ponytail: vehicles turn only where OSM ways end (not at mid-way junction nodes) and don't check junction
 // occupancy before entering; build a lane graph when turning lanes / box-junction rules are needed.
 
+const POLICE_SPEC: VehicleSpec = { ...CATALOG.find(c => c.id === 'sedan')!, label: 'Police patrol car', weight: 0 };
 const SPAWN_MIN = 70, SPAWN_MAX = 260, DESPAWN = 330;
 
 export interface TrafficVehicle {
@@ -23,12 +26,20 @@ export interface TrafficVehicle {
   entity: pc.Entity; hazard: pc.Entity;
   amberGo?: boolean;                      // committed through current amber
   stopped: number;                        // seconds at standstill
+  police?: pc.Entity;                     // light bar (patrol car)
+  y?: number;                             // deck height when on a flyover
 }
 
 export class TrafficManager {
   readonly vehicles: TrafficVehicle[] = [];
   target = 45;              // vehicles around the player (debug panel / AI density scale)
   densityScale = 1;
+  /** People in the carriageway (set by Pedestrians); vehicles yield to them. */
+  pedestrians: () => { x: number; z: number }[] = () => [];
+  enabled = true;
+  policeEnabled = true;
+  rain = false;             // wet roads: everyone drives slower with longer gaps
+  rush = 0;                 // 0..1 rush hour: ~2.3x vehicles, crawling speeds, short gaps
   speedScale = 1;           // AI 'reduceSpeed'
   headwayScale = 1;         // AI 'increaseFollowingDistance'
   incidentsPerMinute = 0.4; // background breakdown rate
@@ -42,6 +53,10 @@ export class TrafficManager {
   private rnd = Math.random;
   private roadCache: RoadData[] = [];
   private roadCacheAge = 0;
+  private peds: { x: number; z: number }[] = [];
+  private siren = [new pc.Color(1, 0.1, 0.1), new pc.Color(0.15, 0.3, 1)].map(c => {
+    const m = new pc.StandardMaterial(); m.diffuse = new pc.Color(0, 0, 0); m.emissive = c; m.useLighting = false; m.update(); return m;
+  });
 
   constructor(app: pc.AppBase, private map: MapChunkManager, private player: VehiclePhysics) {
     this.models = new ModelCache(app.graphicsDevice);
@@ -51,11 +66,23 @@ export class TrafficManager {
   get incidents() { return this.vehicles.filter(v => v.broken > 0); }
 
   update(dt: number) {
-    const want = Math.round(this.target * this.densityScale);
+    const want = !this.enabled ? 0 : Math.round(this.target * this.densityScale * (1 + 2.6 * this.rush));
     this.roadCacheAge -= dt;
     if (this.roadCacheAge <= 0) { this.roadCacheAge = 1; this.roadCache = [...this.map.roads.roads()].filter(r => r.w >= 5 && r.h !== 'service'); }
-    if (this.vehicles.length < want) this.spawn();
-    while (this.vehicles.length > want + 5) this.remove(this.vehicles[0]);
+    this.peds = this.pedestrians();
+    if (this.vehicles.length < want) {
+      const head = this.spawn();
+      // Rush hour: spawn whole queues (5-10 vehicles nose-to-tail in one lane) instead of lone cars.
+      // Colombo rush hour fills the full road width: each row behind gets 1-3 vehicles abreast (overlap-checked).
+      if (head && this.rush) for (let k = 0, q: TrafficVehicle | null = head; k < 5 + this.rnd() * 7 && q && this.vehicles.length < want; k++) {
+        const next: TrafficVehicle | null = this.spawn(this.rushCategory(), false, q);
+        for (let m = 0; m < 3 && next; m++) this.spawn(this.rushCategory(), false, next, true);
+        q = next ?? q;
+        if (!next) break;
+      }
+    }
+    while (this.vehicles.length > (want ? want + 5 : 0)) this.remove(this.vehicles[0]);
+    if (!this.policeEnabled) for (const v of this.vehicles.filter(v => v.police)) this.remove(v);
 
     const P = this.player;
     for (const v of [...this.vehicles]) {
@@ -63,38 +90,75 @@ export class TrafficManager {
       if (dp > DESPAWN || !Number.isFinite(dp)) { this.remove(v); continue; }
       // ponytail: gridlock valve. Signals cycle in 54 s, so >75 s stationary means a deadlock; recycle it if not right next to the player.
       v.stopped = v.v < 0.2 && !v.broken ? v.stopped + dt : 0;
-      if (v.stopped > 75 && dp > 40) { this.remove(v); continue; }
+      if (v.stopped > (this.rush ? 150 : 75) && dp > 40) { this.remove(v); continue; }
       this.drive(v, dt);
     }
     this.collidePlayer();
     this.incidentTick(dt);
     this.blink += dt;
+    const phase = Math.sin(this.blink * 12) > 0;
+    if ((this.siren[0].emissiveIntensity > 1) !== phase) {
+      this.siren[0].emissiveIntensity = phase ? 4 : 0.3; this.siren[1].emissiveIntensity = phase ? 0.3 : 4;
+      this.siren.forEach(m => m.update());
+    }
     const on = Math.sin(this.blink * 9) > 0 ? 3 : 0;
     if (this.models.hazardMat.emissiveIntensity !== on) { this.models.hazardMat.emissiveIntensity = on; this.models.hazardMat.update(); }
   }
 
   // --- spawning --------------------------------------------------------------------------------------
-  spawn(category?: Category, near = false): TrafficVehicle | null {
+  /** Rush-hour mix: buses and three-wheelers dominate, motorbikes everywhere. */
+  private rushCategory(): Category | undefined {
+    const r = this.rnd();
+    return r < 0.16 ? 'bus' : r < 0.46 ? 'tuktuk' : r < 0.62 ? 'motorcycle' : undefined;
+  }
+
+  /** Free lateral slot? Same path, overlapping along-road and across-road footprints (+ jam margins). */
+  private free(path: number[], s: number, lane: number, spec: VehicleSpec, ignore?: TrafficVehicle) {
+    return !this.vehicles.some(o => o !== ignore && o.path === path && Math.abs(o.s - s) < (o.spec.length + spec.length) / 2 + 0.6
+      && Math.abs(o.lane - o.shift - lane) < (o.spec.width + spec.width) / 2 + 0.25);
+  }
+
+  spawn(category?: Category, near = false, behind?: TrafficVehicle, beside = false): TrafficVehicle | null {
     const P = this.player, roads = this.roadCache;
-    for (let attempt = 0; attempt < 12 && roads.length; attempt++) {
-      const road = roads[Math.floor(this.rnd() * roads.length)];
+    // Rush hour packs traffic closer to the player so the jam is around you, not spread over 260 m.
+    const [minD, maxD] = near ? [25, 120] : this.rush ? [30, 170] : [SPAWN_MIN, SPAWN_MAX];
+    for (let attempt = 0; attempt < (behind ? 1 : 12) && roads.length; attempt++) {
+      const road = behind?.road ?? roads[Math.floor(this.rnd() * roads.length)];
       const dir = road.o || this.rnd() < 0.5 ? 1 : -1;
-      const path = dir > 0 ? road.p.slice() : reversePts(road.p);
-      const cum = cumulative(path), len = cum[cum.length - 1];
+      const path = behind?.path ?? (dir > 0 ? road.p.slice() : reversePts(road.p));
+      const cum = behind?.cum ?? cumulative(path), len = cum[cum.length - 1];
       if (len < 15) continue;
-      const s = 5 + this.rnd() * (len - 10);
+      const isPolice = this.policeEnabled && !category && !behind && this.rnd() < 0.05;
+      const spec = isPolice ? POLICE_SPEC : pickSpec(this.rnd, category);
+      // Queue member: bumper-to-bumper behind the previous one (jam gap ~1.5-2.5 m).
+      const s = beside ? behind!.s + (this.rnd() - 0.5) * 1.5
+        : behind ? behind.s - (behind.spec.length + spec.length) / 2 - (this.rush ? 0.7 : 1.5) - this.rnd() * (this.rush ? 0.8 : 1) : 5 + this.rnd() * (len - 10);
+      if (s < 2 || s > len - 2) return null;
+      const lane = this.rush ? rushLane(road, spec, this.rnd) : laneOffset(road, spec);
+      if (behind && !this.free(path, s, lane, spec)) { if (beside) return null; continue; }
       const [x, z] = pointAt(path, cum, s);
       const d = Math.hypot(x - P.x, z - P.z);
-      if (near ? d > 120 || d < 25 : d < SPAWN_MIN || d > SPAWN_MAX) continue;
-      if (this.vehicles.some(o => Math.hypot(o.x - x, o.z - z) < 14)) continue;
-      const spec = pickSpec(this.rnd, category), profile = pickProfile(this.rnd, spec), pr = PROFILES[profile];
-      const { root, hazard } = this.models.entity(spec, randomLook(spec, this.rnd));
+      if (!behind && (d < minD || d > maxD)) continue;
+      if (behind ? d < 8 : this.vehicles.some(o => Math.hypot(o.x - x, o.z - z) < (this.rush ? 5 : 14))) continue;
+      const profile = isPolice ? 'normal' : pickProfile(this.rnd, spec), pr = PROFILES[profile];
+      const { root, hazard } = this.models.entity(spec, isPolice ? { color: 0xf2f2f0, accent: 0x1b3f8a } : randomLook(spec, this.rnd));
       this.root.addChild(root);
       const v: TrafficVehicle = {
         id: this.nextId++, spec, profile, v0: spec.v0 * pr.v0 * (0.92 + this.rnd() * 0.16), a: spec.a * pr.a, b: spec.b, T: spec.T * pr.T, s0: spec.s0,
-        road, path, cum, seg: 0, s, lane: laneOffset(road, spec), shift: 0, v: spec.v0 * 0.6, x, z, ux: 0, uz: -1, yaw: 0, roll: 0,
+        road, path, cum, seg: 0, s, lane, shift: 0, v: spec.v0 * (behind ? 0.1 : this.rush ? 0.3 : 0.6), x, z, ux: 0, uz: -1, yaw: 0, roll: 0,
         broken: 0, stuckBehindBroken: 0, stopped: 0, entity: root, hazard,
       };
+      if (isPolice) {
+        v.police = new pc.Entity('lightbar');
+        for (const [i, mat] of [this.siren[0], this.siren[1]].entries()) {
+          const l = new pc.Entity();
+          l.addComponent('render', { type: 'box', material: mat, castShadows: false });
+          l.setLocalScale(0.55, 0.14, 0.25);
+          l.setLocalPosition(i ? 0.3 : -0.3, spec.height + 0.07, 0.2);
+          v.police.addChild(l);
+        }
+        root.addChild(v.police);
+      }
       this.place(v);
       this.vehicles.push(v);
       return v;
@@ -119,12 +183,16 @@ export class TrafficManager {
       return;
     }
     const { gap, leadV, leader } = this.leader(v);
-    const v0 = v.v0 * this.speedScale, T = v.T * this.headwayScale;
+    // Rush hour: crawl (~25-40% of free speed) with slow stop-and-go waves; tight jam gaps; sluggish pull-away.
+    const wave = this.rush ? 0.55 + 0.45 * Math.sin(this.blink * 0.25 + v.x * 0.02 + v.z * 0.013) : 1;
+    const wet = this.rain ? 0.8 : 1;
+    const v0 = Math.max(0.8, v.v0 * this.speedScale * (1 - 0.65 * this.rush) * wave * wet), T = (v.T * this.headwayScale * (1 - 0.35 * this.rush)) / wet;
+    const s0 = v.s0 * (1 - 0.6 * this.rush), aMax = v.a * (1 - 0.35 * this.rush);
     // IDM: acc = a[1 - (v/v0)^4 - (s*/s)^2], s* = s0 + vT + v·Δv / (2√(ab))
-    let acc = v.a * (1 - (v.v / v0) ** 4);
+    let acc = aMax * (1 - (v.v / v0) ** 4);
     if (gap < Infinity) {
-      const sStar = v.s0 + Math.max(0, v.v * T + (v.v * (v.v - leadV)) / (2 * Math.sqrt(v.a * v.b)));
-      acc -= v.a * (sStar / Math.max(gap, 0.1)) ** 2;
+      const sStar = s0 + Math.max(0, v.v * T + (v.v * (v.v - leadV)) / (2 * Math.sqrt(aMax * v.b)));
+      acc -= aMax * (sStar / Math.max(gap, 0.1)) ** 2;
     }
     v.v = Math.max(0, v.v + Math.max(acc, -8) * dt); // -8 m/s²: emergency-brake ceiling, no instant stops
 
@@ -137,6 +205,17 @@ export class TrafficManager {
       if (behind < -(v.passing.spec.length / 2 + v.spec.length / 2 + 4) || !this.vehicles.includes(v.passing)) v.passing = undefined;
     }
     v.shift += Math.max(-1.5 * dt, Math.min(1.5 * dt, need - v.shift));
+
+    // Filtering (very Colombo): blocked bikes / tuk-tuks look for a gap to the side and slip into it.
+    const small = v.spec.category === 'motorcycle' || v.spec.category === 'tuktuk';
+    if (small && !v.passing && gap < 3 && (this.rush || v.spec.category === 'motorcycle')) {
+      const half = v.road.w / 2 - v.spec.width / 2 - 0.15, lo = v.road.o ? -half : v.spec.width / 2 + 0.15;
+      for (const d of this.rnd() < 0.5 ? [0.9, -0.9] : [-0.9, 0.9]) {
+        const target = v.lane + d;
+        if (target < lo || target > half) continue;
+        if (this.free(v.path, v.s + 1.5, target - v.shift, v.spec, v)) { v.lane += Math.sign(d) * Math.min(Math.abs(d), 1.8 * dt); break; }
+      }
+    }
     this.advance(v, v.v * dt);
   }
 
@@ -152,14 +231,16 @@ export class TrafficManager {
       if (g < gap) { gap = g; leadV = speed; leader = o; }
     };
     for (const o of this.vehicles) {
+      if (Math.abs((o.y ?? 0) - (v.y ?? 0)) > 2.5) continue; // different level (flyover vs. road below)
       if (o === v || o.ux * v.ux + o.uz * v.uz < 0.2 && o.broken === 0) continue; // ignore crossing/oncoming movers
       if (v.passing === o) continue;
       // Converging/crossing paths: only one of the pair yields (older id has priority), otherwise both wait forever.
       if (!o.broken && o.ux * v.ux + o.uz * v.uz < 0.9 && o.id > v.id) continue;
       consider(o.x, o.z, o.spec.length, o.spec.width, o.v * Math.max(0, o.ux * v.ux + o.uz * v.uz), o);
     }
+    for (const p of this.peds) consider(p.x, p.z, 0.5, 1.2, 0);
     const P = this.player;
-    consider(P.x, P.z, 4.4, 1.8, Math.max(0, P.forwardSpeed * (-Math.sin(P.yaw) * v.ux - Math.cos(P.yaw) * v.uz)));
+    if (Math.abs(P.y - (v.y ?? 0)) < 2.5) consider(P.x, P.z, 4.4, 1.8, Math.max(0, P.forwardSpeed * (-Math.sin(P.yaw) * v.ux - Math.cos(P.yaw) * v.uz)));
 
     // Signals: red -> stop at the line; amber -> stop only if the line is beyond comfortable braking distance.
     for (const list of this.map.stops.values()) for (const st of list) {
@@ -210,7 +291,7 @@ export class TrafficManager {
     v.cum = cumulative(v.path);
     v.seg = 0;
     v.s = Math.min(carry, v.cum[v.cum.length - 1]);
-    v.lane = laneOffset(o.road, v.spec);
+    v.lane = this.rush ? rushLane(o.road, v.spec, this.rnd) : laneOffset(o.road, v.spec);
     return true;
   }
 
@@ -229,27 +310,45 @@ export class TrafficManager {
     const yaw = Math.atan2(-v.ux, -v.uz), dyaw = wrap(yaw - v.yaw);
     v.yaw = yaw;
     if (v.spec.category === 'motorcycle') v.roll += (Math.max(-0.4, Math.min(0.4, (dyaw / Math.max(ds, 0.01)) * v.v * 0.25)) - v.roll) * 0.1;
-    v.entity.setPosition(v.x, 0.1, v.z);
+    // Height comes only from the road this vehicle is driving on — never from a deck it happens to be near.
+    const ys = v.road.y;
+    if (ys && isElevated(v.road)) {
+      const fwd = path[0] === v.road.p[0] && path[1] === v.road.p[1], n = ys.length;
+      const y0 = ys[fwd ? i : n - 1 - i], y1 = ys[fwd ? i + 1 : n - 2 - i] ?? y0;
+      v.y = y0 + (y1 - y0) * t;
+    } else v.y = 0;
+    v.y += groundAt(v.x, v.z); // world height: terrain + deck
+    v.entity.setPosition(v.x, 0.1 + v.y, v.z);
     v.entity.setEulerAngles(0, (yaw * 180) / Math.PI, (v.roll * 180) / Math.PI);
   }
 
   // --- player collisions (real contact, not scripted): OBB vs player circle ------------------------------
   private collidePlayer() {
-    const P = this.player, R = 1.3;
+    const P = this.player, c = P.cfg, R = c.width / 2;
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), span = c.length / 2 - R;
     for (const v of this.vehicles) {
-      const dx = P.x - v.x, dz = P.z - v.z;
-      const lx = v.uz, lz = -v.ux;
-      const la = dx * v.ux + dz * v.uz, ll = dx * lx + dz * lz;
-      const ca = Math.max(-v.spec.length / 2, Math.min(v.spec.length / 2, la)), cl = Math.max(-v.spec.width / 2, Math.min(v.spec.width / 2, ll));
-      const ox = dx - (v.ux * ca + lx * cl), oz = dz - (v.uz * ca + lz * cl), d = Math.hypot(ox, oz);
-      if (d >= R) continue;
-      const nx = d > 1e-3 ? ox / d : -v.ux, nz = d > 1e-3 ? oz / d : -v.uz;
-      P.x += nx * (R - d); P.z += nz * (R - d);
-      const rel = (P.vx - v.ux * v.v) * nx + (P.vz - v.uz * v.v) * nz;
-      if (rel < 0) {
-        const mRatio = Math.min(0.9, v.spec.mass / (v.spec.mass + 1200)); // heavier AI vehicle -> player bounces more
-        P.vx -= nx * rel * (1 + mRatio * 0.4); P.vz -= nz * rel * (1 + mRatio * 0.4);
-        v.v = Math.max(0, v.v + rel * (1 - mRatio) * 0.5);
+      if (Math.abs(P.y - (v.y ?? 0)) > 2.5) continue; // one of us is on the flyover above
+      if (Math.abs(P.x - v.x) > c.length + v.spec.length || Math.abs(P.z - v.z) > c.length + v.spec.length) continue;
+      for (const o of [-span, 0, span]) { // player body as three circles along its length
+        const px = P.x + fx * o, pz = P.z + fz * o, dx = px - v.x, dz = pz - v.z;
+        const lx = v.uz, lz = -v.ux;
+        const la = dx * v.ux + dz * v.uz, ll = dx * lx + dz * lz;
+        const ca = Math.max(-v.spec.length / 2, Math.min(v.spec.length / 2, la)), cl = Math.max(-v.spec.width / 2, Math.min(v.spec.width / 2, ll));
+        const ox = dx - (v.ux * ca + lx * cl), oz = dz - (v.uz * ca + lz * cl), d = Math.hypot(ox, oz);
+        if (d >= R) continue;
+        const nx = d > 1e-3 ? ox / d : -v.ux, nz = d > 1e-3 ? oz / d : -v.uz;
+        // Split penetration by mass so a bus shoves a tuk-tuk, not the other way round.
+        const share = v.spec.mass / (v.spec.mass + c.mass);
+        P.x += nx * (R - d) * share; P.z += nz * (R - d) * share;
+        const rx = px - nx * R - P.x, rz = pz - nz * R - P.z; // contact point rel. player CG
+        const rel = (P.vx + P.omega * rz - v.ux * v.v) * nx + (P.vz - P.omega * rx - v.uz * v.v) * nz;
+        if (rel >= 0) continue;
+        // Two-body impulse, crumple restitution; AI vehicle treated as a point mass on its path.
+        const e = 0.3 / (1 + -rel / 4), rn = rz * nx - rx * nz;
+        const j = (-(1 + e) * rel) / (1 / c.mass + 1 / v.spec.mass + (rn * rn) / c.inertia);
+        P.applyImpulse(j * nx, j * nz, rx, rz);
+        v.v = Math.max(0, v.v - (j * (v.ux * nx + v.uz * nz)) / v.spec.mass);
+        P.impact = Math.max(P.impact, -rel);
         if (-rel > 4 && !v.broken) { // a real impact disables the AI vehicle: hazards on, traffic queues/passes
           v.broken = 40 + -rel * 4;
           this.lastCollision = `Collision with ${v.spec.label} at ${Math.round(-rel * 3.6)} km/h`;
@@ -283,6 +382,12 @@ export class TrafficManager {
   }
 
   avgSpeed() { return this.vehicles.reduce((s, v) => s + v.v, 0) / (this.vehicles.length || 1); }
+}
+
+/** Rush hour: anywhere across the usable width (left half, or the full width on one-ways) — no lane discipline. */
+function rushLane(r: RoadData, spec: VehicleSpec, rnd: () => number) {
+  const half = r.w / 2 - spec.width / 2 - 0.15, lo = r.o ? -half : spec.width / 2 + 0.15;
+  return half > lo ? lo + rnd() * (half - lo) : laneOffset(r, spec);
 }
 
 /** Left-of-centre lane offset. Two-wheelers/tuk-tuks keep closer to the kerb (Colombo practice). */

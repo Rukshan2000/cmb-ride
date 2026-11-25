@@ -3,6 +3,7 @@ export interface DriveInput {
   brake: number;     // 0..1  (S / Down)
   steer: number;     // -1..1, +1 = left
   handbrake: boolean;
+  horn: boolean;     // H
 }
 
 /** Keyboard state plus one-shot actions (camera, reset, pause). */
@@ -28,6 +29,7 @@ export class InputManager {
       brake: k('KeyS', 'ArrowDown') ? 1 : 0,
       steer: (k('KeyA', 'ArrowLeft') ? 1 : 0) - (k('KeyD', 'ArrowRight') ? 1 : 0),
       handbrake: k('Space'),
+      horn: k('KeyH'),
     };
   }
 

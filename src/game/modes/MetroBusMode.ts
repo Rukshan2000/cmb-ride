@@ -61,7 +61,7 @@ export class MetroBusMode {
       box(g, s.x, 2.4, s.z, 0, -1, 0.6, 0.5, 0.05, colour);
       box(g, s.x, 2.45, s.z + 0.03, 0, -1, 0.35, 0.18, 0.02, 0xffffff);
       const pole = new pc.Entity('metro stop ' + s.name);
-      pole.addComponent('render', { meshInstances: [new pc.MeshInstance(g.toMesh(app.graphicsDevice)!, mat)] });
+      pole.addComponent('render', { meshInstances: [new pc.MeshInstance(g.toMesh(app.graphicsDevice, true)!, mat)] });
       app.root.addChild(pole);
       const waiting = Array.from({ length: 1 + Math.floor(Math.random() * 6) }, (_, k) =>
         this.people.person(s.x + Math.cos(k * 2.1) * 1.4, s.z + Math.sin(k * 2.1) * 1.4, 1, 0, false));

@@ -102,7 +102,7 @@ export class NavigationManager {
     this.routeEntity?.destroy();
     const g = new GeometryBuffer();
     ribbon(g, pts, 1.1, 0.16, 0xffffff);
-    const mesh = g.toMesh(this.app.graphicsDevice);
+    const mesh = g.toMesh(this.app.graphicsDevice, true);
     if (!mesh) return;
     const mi = new pc.MeshInstance(mesh, this.routeMat);
     this.routeEntity = new pc.Entity('route');

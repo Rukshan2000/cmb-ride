@@ -14,6 +14,7 @@ export class VehicleController {
   readonly entity = new pc.Entity('vehicle');
   private body = new pc.Entity('body');
   private wheels: { pivot: pc.Entity; spin: pc.Entity; front: boolean }[] = [];
+  private lean = 0;
 
   constructor(private app: pc.AppBase, readonly cfg: VehicleConfig) {
     this.physics = new VehiclePhysics(cfg);
@@ -24,8 +25,10 @@ export class VehicleController {
   update(dt: number, input: DriveInput, walls: CollisionWorld | null) {
     this.physics.step(dt, input, walls);
     const p = this.physics;
-    this.entity.setPosition(p.x, 0, p.z);
-    this.entity.setEulerAngles(0, p.yaw * RAD, 0);
+    this.entity.setPosition(p.x, p.y, p.z);
+    // Two-wheelers lean into the turn: lean angle = atan(lateral acceleration / g), eased.
+    if (this.cfg.bike) this.lean += (Math.atan(Math.max(-8, Math.min(8, p.accelW)) / 9.81) - this.lean) * Math.min(1, dt * 8);
+    this.entity.setEulerAngles(p.slope * RAD, p.yaw * RAD, this.lean * RAD);
     this.body.setLocalEulerAngles(p.pitch * RAD, 0, p.roll * RAD);
     for (const w of this.wheels) {
       w.pivot.setLocalEulerAngles(0, w.front ? p.steer * RAD : 0, 0);
@@ -38,18 +41,23 @@ export class VehicleController {
     // Same profile-built sedan as the traffic (Axio/Corolla-style), painted with the config colour.
     const models = new ModelCache(this.app.graphicsDevice);
     const hex = (Math.round(c.color[0] * 255) << 16) | (Math.round(c.color[1] * 255) << 8) | Math.round(c.color[2] * 255);
-    const spec = { ...CATALOG.find(s => s.id === (c.model ?? 'sedan'))!, length: c.length, width: c.width, height: c.height };
+    const spec = { ...CATALOG.find(s => s.id === (c.model ?? 'sedan'))!, length: c.length, width: c.width, height: c.height, rider: 0x2a3a5a, helmet: 0x151515 };
     this.body.addComponent('render', { meshInstances: models.body(spec, { color: hex, accent: c.accent }), castShadows: true });
     this.body.setLocalPosition(0, 0, 0);
     this.entity.addChild(this.body);
 
     const xs = c.trackWidth / 2, r = c.wheelRadius;
-    for (const [x, z, front] of [[xs, -c.cgToFront, true], [-xs, -c.cgToFront, true], [xs, c.cgToRear, false], [-xs, c.cgToRear, false]] as const) {
+    // Wheel layout: motorcycle 1+1 on the centreline, tuk-tuk 1 front + 2 rear, everything else 2+2.
+    const layout: [number, number, boolean][] = c.model === 'motorcycle' ? [[0.001, -c.cgToFront, true], [0.001, c.cgToRear, false]]
+      : c.model === 'tuktuk' ? [[0.001, -c.cgToFront, true], [xs, c.cgToRear, false], [-xs, c.cgToRear, false]]
+      : [[xs, -c.cgToFront, true], [-xs, -c.cgToFront, true], [xs, c.cgToRear, false], [-xs, c.cgToRear, false]];
+    const width = c.model === 'bus' ? 0.32 : c.model === 'motorcycle' ? 0.11 : c.model === 'tuktuk' ? 0.13 : 0.2;
+    for (const [x, z, front] of layout) {
       const pivot = new pc.Entity();
       pivot.setLocalPosition(x, r, z);
       const spin = new pc.Entity();
       const tyre = new pc.Entity();
-      tyre.addComponent('render', { meshInstances: [models.wheel(r, c.model === 'bus' ? 0.32 : 0.2)], castShadows: true });
+      tyre.addComponent('render', { meshInstances: [models.wheel(r, width)], castShadows: true });
       tyre.setLocalPosition(0, -r, 0);       // wheel mesh sits on y=0; pivot is at the axle
       tyre.setLocalScale(x > 0 ? 1 : -1, 1, 1); // rim faces outwards on both sides
       spin.addChild(tyre);

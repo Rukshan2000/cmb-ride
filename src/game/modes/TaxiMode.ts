@@ -6,6 +6,7 @@ import type { NavigationManager } from '../../nav/NavigationManager';
 import type { VehiclePhysics } from '../../vehicle/VehiclePhysics';
 import type { ModeHUD } from './ModeHUD';
 import { PassengerFactory } from './Passengers';
+import type { Wallet } from '../Wallet';
 
 // Taxi: a passenger hails a ride nearby -> drive there and stop -> they give a real Colombo destination ->
 // drive there (navigation guides) and stop -> fare paid. Rates modelled on Colombo app taxis (car, 2026).
@@ -28,7 +29,8 @@ export class TaxiMode {
   private lastCollision = '';
 
   constructor(app: pc.AppBase, private map: MapChunkManager, private nav: NavigationManager, private car: VehiclePhysics,
-    private hud: ModeHUD, private collisions: () => string) {
+    private hud: ModeHUD, private collisions: () => string, private wallet: Wallet) {
+    this.trips = wallet.data.trips;
     this.people = new PassengerFactory(app);
     hud.show('TAXI', '#f2c230');
   }
@@ -38,7 +40,7 @@ export class TaxiMode {
     this.still = speed < 0.8 ? this.still + dt : 0;
     // Damage: a collision costs the rider's tip.
     const col = this.collisions();
-    if (col && col !== this.lastCollision) { this.lastCollision = col; if (this.state.kind === 'riding') { this.earnings -= 200; this.hud.toast('Passenger: "Aiyo! Careful!"  −Rs 200'); } }
+    if (col && col !== this.lastCollision) { this.lastCollision = col; if (this.state.kind === 'riding') { this.earnings -= 200; this.wallet.pay(-200, 'Passenger complaint'); this.hud.toast('Passenger: "Aiyo! Careful!"  −Rs 200'); } }
 
     const s = this.state;
     if (s.kind === 'none') {
@@ -58,7 +60,7 @@ export class TaxiMode {
     }
   }
 
-  private stats() { return `Trips ${this.trips} · Earned Rs ${Math.round(this.earnings).toLocaleString()}`; }
+  private stats() { return `Trips ${this.trips} · This shift Rs ${Math.round(this.earnings).toLocaleString()} · Wallet Rs ${this.wallet.data.money.toLocaleString()}`; }
 
   /** Passenger waits at the kerb of a real road 250–700 m away. */
   private spawnPassenger() {
@@ -102,6 +104,8 @@ export class TaxiMode {
     const fare = Math.round(meter + tip);
     this.earnings += fare;
     this.trips++;
+    this.wallet.data.trips = this.trips;
+    this.wallet.pay(fare, 'Taxi fare');
     this.hud.toast(`${s.name} paid Rs ${fare}${tip ? ' (incl. Rs 100 tip)' : ''} · ${km.toFixed(1)} km`);
     this.nav.cancel();
     this.state = { kind: 'none' };

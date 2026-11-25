@@ -1,4 +1,5 @@
 import * as pc from 'playcanvas';
+import { groundAt } from './Terrain';
 import { project } from './MapProjection';
 
 // Real-building asset database (public/data/buildings/records.json): reference-based GLB models
@@ -62,7 +63,7 @@ export class LandmarkManager {
     this.app.assets.loadFromUrl(`${this.baseUrl}/${r.model}`, 'container', (err, asset) => {
       if (err || !asset) { console.warn(`Building ${r.id} (${r.name}): ${err}`); return; }
       const e = (asset.resource as pc.ContainerResource).instantiateRenderEntity({ castShadows: true });
-      e.setLocalPosition(x, r.y ?? 0, z);
+      e.setLocalPosition(x, (r.y ?? 0) + groundAt(x, z), z);
       e.setLocalEulerAngles(0, -(r.heading ?? 0), 0);
       e.setLocalScale(r.scale ?? 1, r.scale ?? 1, r.scale ?? 1);
       e.name = `building ${r.id} ${r.name}`;

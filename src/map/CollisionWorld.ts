@@ -8,9 +8,15 @@ export class CollisionWorld {
   private cells = new Map<string, Map<string, number[]>>();
   private chunkCells = new Map<string, string[]>();
 
-  addChunk(chunkKey: string, buildings: BuildingData[]) {
+  /** posts: [x,z,halfSize,...] poles/tree trunks/kades, added as small square outlines. */
+  addChunk(chunkKey: string, buildings: BuildingData[], posts: number[] = []) {
     const touched = new Set<string>();
-    for (const b of buildings) {
+    const outlines: { p: number[] }[] = [...buildings];
+    for (let i = 0; i < posts.length; i += 3) {
+      const [x, z, h] = [posts[i], posts[i + 1], posts[i + 2]];
+      outlines.push({ p: [x - h, z - h, x + h, z - h, x + h, z + h, x - h, z + h] });
+    }
+    for (const b of outlines) {
       const p = b.p, n = p.length / 2;
       for (let i = 0; i < n; i++) {
         const j = (i + 1) % n;
