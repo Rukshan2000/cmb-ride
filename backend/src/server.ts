@@ -119,6 +119,8 @@ export function mpStep(b: any, now = Date.now()) {
   const roomId = str(b?.room, 24).toLowerCase(), id = str(b?.id, 24);
   if (!roomId || !id) return null;
   let room = rooms.get(roomId);
+  // Lobby peek: see who's in a room without joining (or creating) it.
+  if (b.peek) return { now, room: roomId, id, players: room ? [...room.players.values()].filter(p => now - p.t < 5000) : [], event: room?.event ?? null };
   if (!room) rooms.set(roomId, (room = { players: new Map(), event: null }));
   const me: MpPlayer = {
     id, name: str(b.name, 16) || 'Rider', model: MODELS.includes(b.model) ? b.model : 'sedan', color: num(b.color, 0xffffff) | 0,

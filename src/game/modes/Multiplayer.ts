@@ -172,6 +172,11 @@ export class Multiplayer {
     }
   }
 
+  /** Other riders for the minimap / nav map. */
+  friends() {
+    return [...this.others.values()].map(s => { const p = s.e.getPosition(); return { id: s.data.id, name: s.data.name, x: p.x, z: p.z, color: `#${s.data.color.toString(16).padStart(6, '0')}` }; });
+  }
+
   private nameOf(id: string) { return id === this.id ? 'You' : this.others.get(id)?.data.name ?? '?'; }
 
   update(dt: number) {

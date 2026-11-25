@@ -15,6 +15,9 @@ import type { Wallet } from './Wallet';
 const FINES = { speeding: 3000, 'red light': 5000, 'reckless driving (collision)': 10000 } as const;
 const FLEE_FINE = 25000;
 const OFFICER_SIGHT = 45, CAR_SIGHT = 70, PULL_OVER_TIME = 25, OFFICERS = 4, WALK = 1.5;
+// Pursuit (if you don't pull over): the patrol tracks you only while it can see you.
+// Escape: >LOSE_DIST away and out of sight for LOSE_TIME s, or stopped in a hiding spot (back lanes / car parks) for HIDE_TIME s.
+const PATROL_SIGHT = 220, LOSE_DIST = 180, LOSE_TIME = 8, HIDE_TIME = 6, HIDE_RADIUS = 12, SPOTS = 6;
 const POLICE_SPEC = { ...CATALOG.find(c => c.id === 'sedan')!, label: 'Police patrol car' };
 type Offence = keyof typeof FINES;
 
@@ -151,7 +154,9 @@ export class Police {
         s.officer = { ...this.officer(ox, oz, fx, fz), x: ox, z: oz };
         s.stage = 'walk';
         this.toast('👮 The officer is walking to your window. Stay stopped.', 4000);
-      } else if (s.t <= 0) this.fled(s);
+      } else if (s.t <= 0 || (gap > 60 && kmh > 30)) this.pursue(s);
+    } else if (s.stage === 'pursuit') {
+      this.pursuit(s, dt, kmh);
     } else if (s.stage === 'walk' || s.stage === 'write') {
       if (kmh > 10) return this.fled(s); // drove off mid-stop
       const o = s.officer!, wx = c.x + rx * 1.4 + fx * 0.3, wz = c.z + rz * 1.4 + fz * 0.3; // driver's window (right-hand drive)
@@ -190,7 +195,9 @@ export class Police {
     }
     this.trail.push({ x, z });
     if (this.trail.length > 70) this.trail.shift();
-    this.stop?.stage === 'chase' && this.stop.route.push({ x, z });
+    // The patrol only gets new breadcrumbs while it can actually see you: break line of sight and it goes to where it lost you.
+    const st = this.stop;
+    if (st && (st.stage === 'chase' || st.stage === 'pursuit') && this.patrolSees(st)) st.route.push({ x, z });
   }
 
   /** Director: picks a camera per stage. While you're still driving in the chase, only a short intro shot. */
@@ -201,6 +208,7 @@ export class Police {
     const c = this.car, p = s.pc, rx = Math.cos(c.yaw), rz = -Math.sin(c.yaw), fx = -Math.sin(c.yaw), fz = -Math.cos(c.yaw);
     const pfx = -Math.sin(p.yaw), pfz = -Math.cos(p.yaw);
     const set = (px: number, py: number, pz: number, lx: number, ly: number, lz: number) => (this.shot = { px, py: py + c.y, pz, lx, ly: ly + c.y, lz }); // heights relative to the car's ground
+    if (s.stage === 'pursuit') return this.film(false);
     if (s.stage === 'chase') {
       if (this.shotT < 2.5) { // intro: low behind the patrol car, lights flashing, looking up the road at you
         set(p.x - pfx * 5 + Math.cos(p.yaw) * 1.2, 1.1, p.z - pfz * 5 - Math.sin(p.yaw) * 1.2, c.x, 1, c.z);
@@ -231,8 +239,94 @@ export class Police {
     this.ticket.style.display = 'none';
   }
 
+  private patrolSees(s: Stop) {
+    const p = s.pc, c = this.car;
+    return Math.hypot(p.x - c.x, p.z - c.z) < PATROL_SIGHT && this.map.collision.raycast(p.x, p.z, c.x, c.z) >= 1;
+  }
+
+  /** You didn't pull over: it's a pursuit now. */
+  private pursue(s: Stop) {
+    s.stage = 'pursuit'; s.lost = 0; s.hidden = 0;
+    this.spots = this.findSpots();
+    this.toast('🚨 You are evading police! Lose them (get out of sight) or hide in a green spot on the map.', 7000);
+  }
+
+  private pursuit(s: Stop, dt: number, kmh: number) {
+    const c = this.car, p = s.pc, gap = Math.hypot(c.x - p.x, c.z - p.z), sees = this.patrolSees(s);
+    const r = s.route;
+    while (r.length && Math.hypot(r[0].x - p.x, r[0].z - p.z) < 6) r.shift();
+    if (r.length) this.drive(p, r[0].x, r[0].z, sees ? 34 : 22, dt);                       // chase / drive to last sighting
+    else this.drive(p, p.x - Math.sin(p.yaw + 0.6 * dt) * 20, p.z - Math.cos(p.yaw + 0.6 * dt) * 20, 8, dt); // search: slow circling
+    if (sees && gap < 7 && kmh < 8) return this.busted(s);
+    s.lost = !sees && gap > LOSE_DIST ? s.lost! + dt : 0;
+    const spot = this.spots.find(h => Math.hypot(h.x - c.x, h.z - c.z) < HIDE_RADIUS);
+    s.hidden = spot && !sees && kmh < 3 ? s.hidden! + dt : 0;
+    if ((this.spotT -= dt) <= 0) { this.spotT = 4; this.spots = this.findSpots(); }
+    const pct = Math.max(s.lost! / LOSE_TIME, s.hidden! / HIDE_TIME);
+    this.meter(sees ? '🚨 SPOTTED: break line of sight' : s.hidden! > 0 ? '🫥 HIDING… stay still' : spot ? 'In a hiding spot: stop the car' : '👀 Out of sight: keep going or hide', pct, sees);
+    if (pct >= 1) this.escaped(s);
+  }
+
+  /** Hiding spots: points on nearby service roads (back lanes, car parks), 60-600 m away; fallback narrow lanes. */
+  private spots: { x: number; z: number }[] = [];
+  private spotT = 0;
+  private spotMarks: pc.Entity[] = [];
+  private findSpots() {
+    const c = this.car, out: { x: number; z: number; d: number }[] = [];
+    for (const r of this.map.roads.roads()) {
+      if (r.h !== 'service' && r.w >= 5) continue;
+      const pt = pointOn(r, 0.5), d = Math.hypot(pt.x - c.x, pt.z - c.z);
+      if (d > 60 && d < 600) out.push({ x: pt.x, z: pt.z, d: d + (r.h === 'service' ? 0 : 150) });
+    }
+    out.sort((a, b) => a.d - b.d);
+    const picked: { x: number; z: number }[] = [];
+    for (const o of out) if (picked.length < SPOTS && picked.every(q => Math.hypot(q.x - o.x, q.z - o.z) > 80)) picked.push(o);
+    // 3D marker: green ring beam on the ground.
+    this.spotMarks.forEach(e => e.destroy());
+    this.spotMarks = picked.map(h => {
+      const e = new pc.Entity('hiding spot');
+      e.addComponent('render', { type: 'cylinder', material: this.spotMat, castShadows: false });
+      e.setLocalScale(HIDE_RADIUS * 2, 0.3, HIDE_RADIUS * 2);
+      e.setPosition(h.x, groundAt(h.x, h.z) + 0.1, h.z);
+      this.app.root.addChild(e);
+      return e;
+    });
+    return picked.map(({ x, z }) => ({ x, z }));
+  }
+  private spotMat = (() => { const m = new pc.StandardMaterial(); m.emissive = new pc.Color(0.1, 1, 0.35); m.emissiveIntensity = 1.5; m.opacity = 0.35; m.blendType = pc.BLEND_ADDITIVE; m.depthWrite = false; m.useLighting = false; m.update(); return m; })();
+
+  /** Hiding spots for the minimap / nav map (only while being pursued). */
+  get hideouts() { return this.stop?.stage === 'pursuit' ? this.spots : []; }
+
+  private bar = (() => {
+    const d = document.createElement('div');
+    Object.assign(d.style, { position: 'fixed', top: '70px', left: '50%', transform: 'translateX(-50%)', width: '320px', padding: '8px 12px', display: 'none',
+      background: 'rgba(10,10,14,.85)', color: '#fff', font: '700 13px system-ui', textAlign: 'center', zIndex: '26', borderTop: '3px solid #e33' });
+    d.innerHTML = '<div></div><div style="height:6px;background:rgba(255,255,255,.15);margin-top:6px"><i style="display:block;height:100%;width:0;background:#3ddc84"></i></div>';
+    document.body.appendChild(d); return d;
+  })();
+  private meter(label: string, pct: number, alarm: boolean) {
+    this.bar.style.display = 'block';
+    this.bar.style.borderTopColor = alarm ? (Math.sin(this.blink * 12) > 0 ? '#e33' : '#36f') : '#3ddc84';
+    (this.bar.firstChild as HTMLElement).textContent = label;
+    (this.bar.querySelector('i') as HTMLElement).style.width = `${Math.min(100, pct * 100)}%`;
+  }
+
+  private escaped(s: Stop) {
+    this.toast('😎 You lost the police. No fine, but they will remember your car for a while.', 6000);
+    this.cool.forEach((_, k) => this.cool.set(k, 60)); // lie low: no new stops for a minute
+    s.offences = [];
+    this.end();
+  }
+
+  private busted(s: Stop) {
+    this.toast('🚓 BUSTED! Caught after evading police.', 5000);
+    this.fled(s);
+  }
+
   private fled(s: Stop) {
     s.fled = true;
+    this.bar.style.display = 'none'; this.spotMarks.forEach(e => e.destroy()); this.spotMarks = []; this.spots = [];
     const total = s.offences.reduce((a, o) => a + FINES[o], 0) + FLEE_FINE;
     this.wallet.fine(total);
     this.showTicket(s, 1, `FLED — plate recorded\nRs ${total.toLocaleString()} incl. Rs ${FLEE_FINE.toLocaleString()} for evading police`);
@@ -243,6 +337,8 @@ export class Police {
 
   private end() {
     this.stop?.pc.e.destroy(); this.stop?.officer?.e.destroy();
+    this.spotMarks.forEach(e => e.destroy()); this.spotMarks = []; this.spots = [];
+    this.bar.style.display = 'none';
     this.stop = null;
     this.film(false);
     setTimeout(() => (this.ticket.style.display = 'none'), 3000);
@@ -338,7 +434,8 @@ export class Police {
 }
 
 interface Stop {
-  offences: Offence[]; stage: 'chase' | 'walk' | 'write' | 'leave'; t: number; still: number;
+  offences: Offence[]; stage: 'chase' | 'pursuit' | 'walk' | 'write' | 'leave'; t: number; still: number;
+  lost?: number; hidden?: number;
   pc: { e: pc.Entity; x: number; z: number; yaw: number; v: number };
   route: { x: number; z: number }[];
   officer?: { e: pc.Entity; arm: pc.Entity; x: number; z: number };

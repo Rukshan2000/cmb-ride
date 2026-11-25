@@ -82,39 +82,137 @@ function details(p: Parts, L: number, W: number, lampY: number, bumperY: number,
 
 const taper = (hw: number, y0: number, y1: number, inset: number) => (y: number) => hw - Math.max(0, Math.min(1, (y - y0) / (y1 - y0))) * inset;
 
-function car(p: Parts, s: VehicleSpec) {
-  const L = s.length, W = s.width, H = s.height, f = -L / 2, r = L / 2, hatch = s.id === 'hatch';
-  const belt = hatch ? 0.95 : 0.92, sill = 0.28;
-  // Lower body: bumper -> bonnet -> cowl -> beltline -> boot/hatch -> rear bumper.
-  const body: Prof = hatch
-    ? [[f, sill + 0.1], [f, 0.62], [f + 0.12, 0.8], [f + 0.75, belt - 0.04], [r - 0.05, belt], [r, 0.7], [r, sill + 0.12], [r - 0.3, sill], [f + 0.3, sill]]
-    : [[f, sill + 0.12], [f, 0.6], [f + 0.15, 0.74], [f + 1.05, belt - 0.05], [r - 0.85, belt], [r - 0.12, belt - 0.03], [r, 0.78], [r, sill + 0.15], [r - 0.35, sill], [f + 0.35, sill]];
-  extrude(p.paint, body, taper(W / 2, 0.6, belt, 0.05), s.color!);
-  // Greenhouse: raked windscreen, roof, rear screen; glass, slightly narrower towards the roof.
-  const g: Prof = hatch
-    ? [[f + 0.78, belt], [f + 1.55, H - 0.05], [r - 0.35, H - 0.05], [r - 0.12, belt]]
-    : [[f + 1.1, belt], [f + 2.0, H - 0.04], [r - 1.45, H - 0.04], [r - 0.8, belt]];
-  extrude(p.glass, g, taper(W / 2 - 0.08, belt, H, 0.16), 0xffffff);
-  // Painted roof skin + pillars over the glass.
-  const roofZ0 = g[1][0] + 0.05, roofZ1 = g[2][0] - 0.05;
-  extrude(p.paint, [[roofZ0, H - 0.07], [roofZ0 + 0.05, H + 0.02], [roofZ1 - 0.05, H + 0.02], [roofZ1, H - 0.07]], () => W / 2 - 0.22, s.color!);
-  const bPillar = (roofZ0 + roofZ1) / 2;
-  for (const side of [-1, 1]) box(p.paint, side * (W / 2 - 0.13), belt, bPillar, 0, -1, 0.04, H - belt, 0.12, s.color!);
-  const wr = 0.31;
-  for (const z of [f + 0.82, r - 0.72]) for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.13), z, wr, 0.2);
-  details(p, L, W, 0.66, 0.4, belt + 0.08, f + 1.2);
-  // Body detailing: grille, door shut lines, handles, chrome window line, black sills, wheel-arch liners.
-  const t = p.trim, dz = (bPillar - (f + 1.1));
-  box(t, 0, 0.5, f - 0.02, 0, -1, W - 0.75, 0.14, 0.04, 0x0d0d0e);
-  for (let k = 0; k < 4; k++) box(t, 0, 0.51 + k * 0.035, f - 0.03, 0, -1, W - 0.78, 0.008, 0.02, CHROME);
-  for (const side of [-1, 1]) {
-    const sx = side * (W / 2 + 0.003);
-    for (const z of [f + 1.1, bPillar, bPillar + dz * (hatch ? 0.8 : 1)]) box(t, sx, sill + 0.1, z, 0, -1, 0.006, belt - sill - 0.12, 0.012, 0x0a0a0a);
-    for (const z of [bPillar - 0.25, bPillar + dz * (hatch ? 0.8 : 1) - 0.25]) box(t, side * (W / 2 + 0.008), belt - 0.15, z, 0, -1, 0.02, 0.035, 0.16, CHROME);
-    box(t, side * (W / 2 - 0.03), belt - 0.01, (g[0][0] + g[g.length - 1][0]) / 2, 0, -1, 0.012, 0.022, g[g.length - 1][0] - g[0][0], CHROME);
-    box(t, side * (W / 2 - 0.02), sill - 0.02, 0, 0, -1, 0.05, 0.1, L - 2.2, 0x161616);
-    for (const z of [f + 0.82, r - 0.72]) box(t, side * (W / 2 - 0.12), wr * 2 - 0.02, z, 0, -1, 0.22, 0.06, wr * 2.3, 0x0e0e0e);
+// --- Lofted cars -------------------------------------------------------------------------------------------
+// Proportions of a real Axio-class sedan / Aqua-class hatch: body and glasshouse are lofts of rounded
+// cross-sections along the length (smooth normals), with wheel arches cut out of the lower body.
+type V3 = [number, number, number];
+
+/** Piecewise smooth (cosine) interpolation through [t, v] keys. */
+const curve = (keys: [number, number][]) => (t: number) => {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) {
+    const [t0, v0] = keys[i - 1], [t1, v1] = keys[i], u = (1 - Math.cos(((t - t0) / (t1 - t0)) * Math.PI)) / 2;
+    return v0 + (v1 - v0) * u;
   }
+  return keys[keys.length - 1][1];
+};
+
+/** Emit a grid of rows (stations along the car) as quads with smooth per-vertex normals; pick() chooses the buffer per quad. */
+function loft(rows: V3[][], closed: boolean, pick: (i: number, k: number) => [GeometryBuffer, number] | null) {
+  const n = rows.length, K = rows[0].length;
+  const at = (i: number, k: number) => rows[Math.max(0, Math.min(n - 1, i))][closed ? (k + K) % K : Math.max(0, Math.min(K - 1, k))];
+  const normal = (i: number, k: number): V3 => {
+    const a = at(i + 1, k), b = at(i - 1, k), c = at(i, k + 1), d = at(i, k - 1);
+    const u = [a[0] - b[0], a[1] - b[1], a[2] - b[2]], v = [c[0] - d[0], c[1] - d[1], c[2] - d[2]];
+    let x = u[1] * v[2] - u[2] * v[1], y = u[2] * v[0] - u[0] * v[2], z = u[0] * v[1] - u[1] * v[0];
+    const row = rows[i], cy = row.reduce((s, q) => s + q[1], 0) / K, p = at(i, k);
+    if (x * p[0] + y * (p[1] - cy) < 0) { x = -x; y = -y; z = -z; } // outward
+    const l = Math.hypot(x, y, z) || 1;
+    return [x / l, y / l, z / l];
+  };
+  for (let i = 0; i < n - 1; i++) for (let k = 0; k < (closed ? K : K - 1); k++) {
+    const r = pick(i, k);
+    if (!r) continue;
+    const [g, c] = r, base = g.vertexCount;
+    for (const [ii, kk] of [[i, k], [i + 1, k], [i + 1, k + 1], [i, k + 1]]) {
+      const q = at(ii, kk), nn = normal(ii, kk);
+      g.vertex(q[0], q[1], q[2], nn[0], nn[1], nn[2], c);
+    }
+    g.quad(base);
+  }
+}
+
+/** Fan cap over one end row (bumper faces). */
+function cap(g: GeometryBuffer, row: V3[], nz: number, c: number) {
+  const cx = 0, cy = row.reduce((s, q) => s + q[1], 0) / row.length, cz = row[0][2], b = g.vertexCount;
+  g.vertex(cx, cy, cz, 0, 0, nz, c);
+  for (const q of row) g.vertex(q[0], q[1], q[2], 0, 0, nz, c);
+  for (let k = 0; k < row.length; k++) g.idx.push(b, b + 1 + k, b + 1 + ((k + 1) % row.length));
+}
+
+const spow = (v: number, e: number) => Math.sign(v) * Math.abs(v) ** e;
+
+function car(p: Parts, s: VehicleSpec) {
+  const L = s.length, W = s.width, H = s.height, f = -L / 2, hatch = s.id === 'hatch', c = s.color!, t = p.trim;
+  const wr = 0.31, R = wr + 0.07;
+  // Axle positions (from the front): real wheelbase ~2.6 m (sedan) / ~2.5 m (hatch); the player car passes its physics axles.
+  const [zF, zR] = s.axles ? [s.axles[0] - f, s.axles[1] - f] : hatch ? [0.68, L - 0.6] : [0.86, L - 0.94];
+  // Side profile of the body top (bonnet -> cowl -> beltline -> boot), metres from the front.
+  const top = curve(hatch
+    ? [[0, 0.5], [0.06, 0.64], [0.22, 0.73], [0.75, 0.84], [1.8, 0.92], [L - 0.12, 0.96], [L, 0.62]]
+    : [[0, 0.5], [0.07, 0.63], [0.28, 0.72], [1.15, 0.83], [2.5, 0.9], [L - 0.9, 0.93], [L - 0.22, 0.93], [L - 0.04, 0.86], [L, 0.62]]);
+  // Glasshouse: windscreen base, roof start/end, rear screen base.
+  const [gA, gB, gC, gD] = hatch ? [0.75, 1.5, L - 0.28, L - 0.08] : [1.15, 2.05, L - 1.5, L - 0.9];
+  const zB = (gA + gD) / 2 - (hatch ? 0.1 : 0.05);                    // B-pillar
+  // Plan view: rounded nose and tail corners.
+  const hw = (z: number) => { const u = Math.abs((2 * z) / L - 1), e = Math.max(0, (u - 0.8) / 0.2); return (W / 2) * Math.sqrt(1 - e * e * 0.3); };
+  // Body bottom: sill, cut up around the wheels (arches).
+  const bottom = (z: number) => {
+    let y = 0.24;
+    for (const zw of [zF, zR]) { const d = z - zw; if (Math.abs(d) < R) y = Math.max(y, wr + Math.sqrt(R * R - d * d) * 0.95); }
+    return y;
+  };
+  // --- body loft (closed rounded-rectangle sections, tumblehome on the upper half)
+  const N = 64, K = 28, rows: V3[][] = [];
+  for (let i = 0; i <= N; i++) {
+    const z = (i / N) * L, yb = bottom(z), yt = top(z), mid = (yb + yt) / 2, h = yt - yb, w = hw(z);
+    const row: V3[] = [];
+    for (let k = 0; k < K; k++) {
+      const a = (k / K) * Math.PI * 2, sy = spow(Math.sin(a), 0.3);
+      row.push([spow(Math.cos(a), 0.25) * w * (sy > 0 ? 1 - 0.07 * sy : 1), mid + (sy * h) / 2, f + z]);
+    }
+    rows.push(row);
+  }
+  loft(rows, true, () => [p.paint, c]);
+  cap(p.paint, rows[0], -1, c); cap(p.paint, rows[N], 1, c);
+  // --- glasshouse loft (open arch section from belt to roof); quads are glass or paint (pillars, rails, roof)
+  const G: V3[][] = [], M = 40, KG = 16, zs: number[] = [];
+  for (let i = 0; i <= M; i++) zs.push(gA + ((gD - gA) * i) / M);
+  for (const z of zs) {
+    const y0 = top(z) - 0.01, y1 = Math.max(y0 + 0.005, z < gB ? y0 + (H - y0) * Math.sin(((z - gA) / (gB - gA)) * Math.PI / 2) ** 0.8
+      : z > gC ? y0 + (H - y0) * Math.cos(((z - gC) / (gD - gC)) * Math.PI / 2) ** (hatch ? 0.6 : 1.1) : H - 0.03 * (((z - (gB + gC) / 2) / ((gC - gB) / 2)) ** 2));
+    const wb = hw(z) * 0.93 - 0.02, wt = wb - 0.2, row: V3[] = [];
+    for (let k = 0; k <= KG; k++) {
+      const a = (k / KG) * Math.PI, ys = Math.abs(Math.sin(a)) ** 0.4;
+      row.push([spow(Math.cos(a), 0.3) * (wb * (1 - ys) + wt * ys), y0 + (y1 - y0) * ys, f + z]);
+    }
+    G.push(row);
+  }
+  loft(G, false, (i, k) => {
+    const z = (zs[i] + zs[i + 1]) / 2, tm = (k + 0.5) / KG;
+    const side = tm < 0.22 || tm > 0.78, corner = !side && (tm < 0.34 || tm > 0.66);
+    if (corner) return [p.paint, c];                                                  // A/C pillars + roof rails
+    if (!side) return z > gB + 0.04 && z < gC - 0.04 ? [p.paint, c] : [p.glass, 0xffffff]; // roof skin / screens
+    const pillar = Math.abs(z - zB) < 0.07 || z < gA + 0.22 || z > (hatch ? gD - 0.32 : gC - 0.05);
+    return pillar ? [p.paint, c] : [p.glass, 0xffffff];
+  });
+  // --- arch liners (dark half discs) and wheels
+  for (const zw of [zF, zR]) for (const side of [-1, 1]) {
+    const x = side * (hw(zw) - 0.06), b = t.vertexCount;
+    t.vertex(x, wr, f + zw, side, 0, 0, 0x0c0c0c);
+    for (let k = 0; k <= 12; k++) { const a = (k / 12) * Math.PI; t.vertex(x, wr + Math.sin(a) * R, f + zw + Math.cos(a) * R, side, 0, 0, 0x0c0c0c); }
+    for (let k = 0; k < 12; k++) t.idx.push(b, b + 1 + k, b + 2 + k);
+    wheel(p, side * (W / 2 - 0.15), f + zw, wr, 0.2);
+  }
+  // --- front: swept headlight clusters, grille, lower intake, plate; rear: tail clusters, plate; mirrors, seams, handles
+  for (const side of [-1, 1]) {
+    const hz = 0.12;
+    box(p.lamp, side * (hw(hz) - 0.3), top(hz) - 0.13, f + hz - 0.04, 0, -1, 0.42, 0.11, 0.12, LAMP);
+    box(p.lamp, side * (hw(hz) - 0.08), top(hz) - 0.11, f + hz + 0.04, 0, -1, 0.07, 0.07, 0.16, AMBER);
+    const tz = L - 0.08;
+    box(p.lamp, side * (hw(tz) - 0.24), top(tz) - 0.17, f + tz, 0, -1, 0.4, 0.14, 0.14, TAIL);
+    box(t, side * (hw(gA) + 0.07), top(gA + 0.2) + 0.02, f + gA + 0.2, 0, -1, 0.15, 0.11, 0.09, c === 0x161718 ? BLACK : c); // mirror
+    box(t, side * (hw(gA) + 0.02), top(gA + 0.2), f + gA + 0.2, 0, -1, 0.08, 0.05, 0.05, BLACK);
+    for (const z of [gA + 0.02, zB, hatch ? zR - R - 0.02 : zR - R - 0.04]) box(t, side * (hw(z) + 0.002), bottom(z) + 0.06, f + z, 0, -1, 0.008, top(z) - bottom(z) - 0.1, 0.01, 0x0a0a0a);
+    for (const z of [zB - 0.28, (hatch ? zR - R : zR - R) - 0.3]) box(t, side * (hw(z) + 0.006), top(z) - 0.12, f + z, 0, -1, 0.018, 0.03, 0.14, CHROME);
+    box(t, side * (W / 2 - 0.05), 0.2, f + (zF + zR) / 2, 0, -1, 0.06, 0.08, zR - zF - 2 * R, 0x141414);   // side skirt
+  }
+  box(t, 0, 0.47, f + 0.02, 0, -1, W * 0.42, 0.12, 0.05, 0x0c0c0d);                    // grille
+  for (let k = 0; k < 3; k++) box(t, 0, 0.48 + k * 0.035, f + 0.0, 0, -1, W * 0.4, 0.008, 0.02, CHROME);
+  box(t, 0, 0.28, f + 0.05, 0, -1, W * 0.6, 0.1, 0.05, 0x101010);                       // lower intake
+  box(t, 0, 0.33, f - 0.01, 0, -1, 0.5, 0.12, 0.02, PLATE);
+  box(t, 0, top(L - 0.05) - 0.3, f + L + 0.005, 0, -1, 0.5, 0.12, 0.02, PLATE);
+  box(t, 0, 0.24, f + L - 0.05, 0, -1, W * 0.8, 0.1, 0.08, 0x141414);                  // rear diffuser/bumper lower
 }
 
 function van(p: Parts, s: VehicleSpec) {

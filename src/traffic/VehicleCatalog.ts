@@ -12,6 +12,7 @@ export interface VehicleSpec {
   colors: number[]; weight: number;                         // spawn share
   // Per-vehicle look, filled in at spawn (VehicleModels.randomLook)
   color?: number; accent?: number; cargo?: number; rider?: number; helmet?: number;
+  axles?: [number, number];                                 // z of front/rear axle (player car: matches its physics)
 }
 
 export const CATALOG: VehicleSpec[] = [

@@ -65,6 +65,39 @@ export class MapView {
   }
 
   resize() { this.map.resize(); }
+
+  /** Police hiding spots: green markers while you're being pursued. */
+  private spots: maplibregl.Marker[] = [];
+  private spotKey = '';
+  setSpots(list: { lat: number; lon: number }[]) {
+    const key = list.map(p => p.lat.toFixed(5) + p.lon.toFixed(5)).join();
+    if (key === this.spotKey) return;
+    this.spotKey = key;
+    this.spots.forEach(m => m.remove());
+    this.spots = list.map(p => new maplibregl.Marker({ color: '#3ddc84', scale: 0.7 }).setLngLat([p.lon, p.lat]).addTo(this.map));
+  }
+
+  /** Multiplayer friends: a coloured dot + name per rider, kept in sync by id. */
+  private friends = new Map<string, maplibregl.Marker>();
+  setFriends(list: { id: string; name: string; color: string; lat: number; lon: number }[]) {
+    const seen = new Set<string>();
+    for (const f of list) {
+      seen.add(f.id);
+      let m = this.friends.get(f.id);
+      if (!m) {
+        const el = document.createElement('div');
+        el.className = 'map-friend';
+        el.innerHTML = '<i></i><span></span>';
+        m = new maplibregl.Marker({ element: el }).setLngLat([f.lon, f.lat]).addTo(this.map);
+        this.friends.set(f.id, m);
+      }
+      const el = m.getElement();
+      (el.firstChild as HTMLElement).style.background = f.color;
+      el.lastChild!.textContent = f.name;
+      m.setLngLat([f.lon, f.lat]);
+    }
+    for (const [id, m] of this.friends) if (!seen.has(id)) { m.remove(); this.friends.delete(id); }
+  }
 }
 
 const line = (coords: [number, number][]) => ({

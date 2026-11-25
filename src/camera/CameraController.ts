@@ -11,17 +11,27 @@ export class CameraController {
   private pos = new pc.Vec3();
   private orbitYaw = 0; private orbitPitch = 25; private orbitDist = 25;
   private dragging = false;
+  // Chase-camera mouse look (GTA-style): drag to orbit, wheel to zoom; eases back behind the car after release.
+  private lookYaw = 0; private lookPitch = 0; private zoom = 1; private idle = 0;
 
   constructor(readonly camera: pc.Entity, canvas: HTMLCanvasElement) {
-    canvas.addEventListener('mousedown', () => (this.dragging = true));
-    window.addEventListener('mouseup', () => (this.dragging = false));
+    canvas.style.cursor = 'grab';
+    canvas.addEventListener('mousedown', e => { if (e.button === 0) { this.dragging = true; canvas.style.cursor = 'grabbing'; } });
+    window.addEventListener('mouseup', () => { this.dragging = false; canvas.style.cursor = 'grab'; });
     window.addEventListener('mousemove', e => {
-      if (!this.dragging || this.mode !== 'FREE') return;
-      this.orbitYaw -= e.movementX * 0.3;
-      this.orbitPitch = Math.max(5, Math.min(85, this.orbitPitch + e.movementY * 0.3));
+      if (!this.dragging) return;
+      if (this.mode === 'FREE') {
+        this.orbitYaw -= e.movementX * 0.3;
+        this.orbitPitch = Math.max(5, Math.min(85, this.orbitPitch + e.movementY * 0.3));
+      } else if (this.mode === 'CHASE' || this.mode === 'FAR') {
+        this.lookYaw -= e.movementX * 0.3;
+        this.lookPitch = Math.max(-15, Math.min(70, this.lookPitch + e.movementY * 0.25));
+        this.idle = 0;
+      }
     });
     canvas.addEventListener('wheel', e => {
       if (this.mode === 'FREE') this.orbitDist = Math.max(5, Math.min(600, this.orbitDist * (1 + e.deltaY * 0.001)));
+      else if (this.mode === 'CHASE' || this.mode === 'FAR') this.zoom = Math.max(0.5, Math.min(4, this.zoom * (1 + e.deltaY * 0.001)));
     }, { passive: true });
   }
 
@@ -98,7 +108,7 @@ export class CameraController {
 
     if (this.mode === 'FREE') {
       const a = ((this.orbitYaw + yawDeg) * Math.PI) / 180, p = (this.orbitPitch * Math.PI) / 180;
-      this.camera.setPosition(car.x + Math.sin(a) * Math.cos(p) * this.orbitDist, Math.sin(p) * this.orbitDist, car.z + Math.cos(a) * Math.cos(p) * this.orbitDist);
+      this.camera.setPosition(car.x + Math.sin(a) * Math.cos(p) * this.orbitDist, Math.sin(p) * this.orbitDist + car.y, car.z + Math.cos(a) * Math.cos(p) * this.orbitDist);
       this.camera.lookAt(car.x, 1 + car.y, car.z);
       return;
     }
@@ -107,10 +117,20 @@ export class CameraController {
     const speed = Math.abs(car.forwardSpeed);
     const k = Math.max(1, this.vehicleLength / 4.4);
     const far = this.mode === 'FAR' ? 1.9 : 1;
-    const dist = (6.5 * k + Math.min(speed * 0.06, 2.5)) * far;
-    const target = new pc.Vec3(car.x - fx * dist, 2.4 * Math.sqrt(k) * 1.15 ** (k - 1) * far + car.y, car.z - fz * dist);
+    const dist = (6.5 * k + Math.min(speed * 0.06, 2.5)) * far * this.zoom;
+    // Mouse look: after 1.5 s without dragging, swing back behind the car (faster when moving).
+    if (!this.dragging && (this.idle += dt) > 1.5) {
+      const back = 1 - Math.exp(-dt * (1.5 + speed * 0.15));
+      this.lookYaw -= (((this.lookYaw + 180) % 360 + 360) % 360 - 180) * back;
+      this.lookPitch -= this.lookPitch * back;
+    }
+    const ly = (this.lookYaw * Math.PI) / 180, lp = (this.lookPitch * Math.PI) / 180;
+    const bx = -fx * Math.cos(ly) + fz * Math.sin(ly), bz = -fz * Math.cos(ly) - fx * Math.sin(ly); // "behind", rotated
+    const h0 = 2.4 * Math.sqrt(k) * 1.15 ** (k - 1) * far * this.zoom;
+    const target = new pc.Vec3(car.x + bx * dist * Math.cos(lp), h0 + Math.sin(lp) * dist + car.y, car.z + bz * dist * Math.cos(lp));
     if (this.snap) { this.pos.copy(target); this.snap = false; }
-    this.pos.lerp(this.pos, target, 1 - Math.exp(-dt * 6));
+    // While orbiting, follow tightly so the drag feels direct; otherwise the usual soft spring.
+    this.pos.lerp(this.pos, target, 1 - Math.exp(-dt * (this.idle < 1.5 ? 20 : 6)));
 
     // Camera collision: pull in front of the first wall between car and camera; never below ground.
     if (walls && car.y < 2) {
@@ -123,6 +143,7 @@ export class CameraController {
     }
     this.pos.y = Math.max(this.pos.y, car.y + 0.6);
     this.camera.setPosition(this.pos.x + jit(), this.pos.y + jit(), this.pos.z + jit());
-    this.camera.lookAt(car.x + fx * 4, 1.1 * Math.max(1, this.vehicleLength / 6) + car.y, car.z + fz * 4);
+    const ahead = Math.abs(this.lookYaw) > 20 || this.idle < 1.5 ? 0 : 4; // orbiting: look at the car itself
+    this.camera.lookAt(car.x + fx * ahead, 1.1 * Math.max(1, this.vehicleLength / 6) + car.y, car.z + fz * ahead);
   }
 }

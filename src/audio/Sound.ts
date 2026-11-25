@@ -202,6 +202,28 @@ export class Sound {
     return () => { const e = c.currentTime; g.gain.setTargetAtTime(0, e, 0.03); srcs.forEach(s => s.stop(e + 0.2)); };
   }
 
+  /** Thunder: a crack (close strikes) then a long lowpassed rumble; dist 0 = overhead, 1 = far away. */
+  thunder(dist: number) {
+    const c = this.ctx, t = c.currentTime;
+    for (const [hz, peak, dur, at] of [[2200, 0.5 * (1 - dist), 0.35, 0], [160, 0.7 - dist * 0.3, 4 + dist * 3, 0.05]] as const) {
+      if (peak <= 0.02) continue;
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      s.buffer = this.noise; s.loop = true; s.playbackRate.value = hz > 1000 ? 1 : 0.5;
+      f.type = 'lowpass'; f.frequency.value = hz;
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(peak, t + at + 0.08 + dist * 0.4);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      s.connect(f).connect(g).connect(this.master); s.start(t + at); s.stop(t + at + dur + 0.1);
+    }
+  }
+
+  /** Splash through a puddle (strength 0..1). */
+  splash(strength: number) {
+    const c = this.ctx, t = c.currentTime, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.7;
+    g.gain.setValueAtTime(0.15 + strength * 0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5 + strength * 0.4);
+    s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + 1);
+  }
+
   private crash(strength: number) {
     const c = this.ctx, s = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
     s.buffer = this.buf.crash ?? this.noise;

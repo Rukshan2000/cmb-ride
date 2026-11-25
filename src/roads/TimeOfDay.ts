@@ -6,6 +6,7 @@ const PRESETS = {
   day:      { sky: [0.55, 0.74, 0.95], sun: [1, 0.93, 0.8],  sunI: 1.6,  pitch: 50, amb: [0.42, 0.45, 0.52], lamp: 0 },
   overcast: { sky: [0.66, 0.69, 0.72], sun: [0.9, 0.92, 0.95], sunI: 0.6, pitch: 70, amb: [0.55, 0.56, 0.58], lamp: 0 },
   sunset:   { sky: [1.0, 0.55, 0.38],  sun: [1, 0.55, 0.28], sunI: 1.3,  pitch: 12, amb: [0.42, 0.3, 0.36],  lamp: 2 },   // golden hour
+  storm:    { sky: [0.24, 0.26, 0.3],  sun: [0.7, 0.75, 0.85], sunI: 0.25, pitch: 70, amb: [0.3, 0.31, 0.35], lamp: 2 },   // monsoon thunderstorm: lamps + headlights on
   night:    { sky: [0.03, 0.04, 0.1],  sun: [0.5, 0.6, 0.85], sunI: 0.06, pitch: 40, amb: [0.08, 0.08, 0.16], lamp: 6 },  // neon-ish glow, blooms
 };
 export type TimeName = keyof typeof PRESETS;

@@ -15,7 +15,7 @@ import { ModeHUD } from './modes/ModeHUD';
 import { RouteCompare } from './RouteCompare';
 import { Police } from './Police';
 import { Wallet, isRush, lightFor } from './Wallet';
-import { terrainGrid } from '../map/Terrain';
+import { groundAt, terrainGrid } from '../map/Terrain';
 import { Sound } from '../audio/Sound';
 import { Pedestrians } from '../people/Pedestrians';
 import { Weather } from '../roads/Weather';
@@ -23,6 +23,7 @@ import { Settings, type SettingValues } from '../ui/Settings';
 import { TaxiMode } from './modes/TaxiMode';
 import { Multiplayer } from './modes/Multiplayer';
 import { MetroBusMode, playableStops, type MetroRoute } from './modes/MetroBusMode';
+import { showLobby, type LobbyChoice } from '../ui/Lobby';
 import { GameConfig } from './GameConfig';
 import { TimeOfDay } from '../roads/TimeOfDay';
 import { Sky } from '../roads/Sky';
@@ -57,6 +58,7 @@ export class Game {
   private debug?: TrafficDebugPanel;
   private mode?: { update(dt: number): void };
   private mp?: Multiplayer;
+  private friendsT = 0;
   private compare?: RouteCompare;
   private police?: Police;
   private groundMat!: pc.StandardMaterial;
@@ -79,7 +81,7 @@ export class Game {
     });
     const opts = new pc.AppOptions();
     opts.graphicsDevice = device;
-    opts.componentSystems = [pc.RenderComponentSystem, pc.CameraComponentSystem, pc.LightComponentSystem];
+    opts.componentSystems = [pc.RenderComponentSystem, pc.CameraComponentSystem, pc.LightComponentSystem, pc.ParticleSystemComponentSystem];
     opts.resourceHandlers = [pc.TextureHandler, pc.ContainerHandler];
     const app = (this.app = new pc.AppBase(canvas));
     app.init(opts);
@@ -95,36 +97,27 @@ export class Game {
     this.buildSea();
     this.buildTerrain();
 
-    // Game mode (free drive / taxi / Lanka Metro bus): menu, or ?mode=free|taxi|metro&route=CM06
-    const choice = await chooseMode();
+    // Load the street around the spawn (saved parking spot or default) first: the lobby shows it behind the garage.
+    const spawn = GameConfig.spawn, q = new URLSearchParams(location.search);
+    const wallet = (this.wallet = new Wallet());
+    let [sx, sz] = project(spawn.lat, spawn.lon);
+    const saved = q.has('at') ? undefined : wallet.data.pos;
+    if (saved && [saved.x, saved.z].every(Number.isFinite)) [sx, sz] = [saved.x, saved.z];
+    app.start();
+    await this.loadAround(sx, sz);
+    const spot = this.map.roads.nearest(sx, sz);
+    const lobbyAt = spot ? { x: spot.x, y: groundAt(spot.x, spot.z), z: spot.z, yaw: Math.atan2(-spot.dx, -spot.dz) } : { x: sx, y: groundAt(sx, sz), z: sz, yaw: 0 };
+
+    // Lobby (garage + mode), or skipped with ?mode=free|taxi|metro&route=CM06 / ?room=name
+    const choice = await chooseMode(app, this.camEntity, lobbyAt);
     const metroRoute = choice.mode === 'metro' ? choice.route : null;
     const metroStart = metroRoute ? playableStops(metroRoute) : [];
+    if (metroStart.length >= 2) { [sx, sz] = [metroStart[0].x, metroStart[0].z]; await this.loadAround(sx, sz); }
 
-    // Load the chunks around the spawn point before handing over control.
-    const spawn = GameConfig.spawn;
-    let [sx, sz] = project(spawn.lat, spawn.lon);
-    if (metroStart.length >= 2) [sx, sz] = [metroStart[0].x, metroStart[0].z];
-    const wallet = (this.wallet = new Wallet());
-    const saved = metroRoute || new URLSearchParams(location.search).has('at') ? undefined : wallet.data.pos;
-    if (saved && [saved.x, saved.z].every(Number.isFinite)) [sx, sz] = [saved.x, saved.z];
-    const initial = this.map.wanted(sx, sz).slice(0, 9);
-    app.start();
-    await new Promise<void>(resolve => {
-      const tick = () => {
-        this.map.update(sx, sz);
-        const done = initial.filter(k => this.map.isLoaded(k)).length;
-        this.hud.setLoading(done / initial.length);
-        if (done === initial.length || (this.map.pendingCount === 0 && done > 0)) resolve();
-        else setTimeout(tick, 50);
-      };
-      tick();
-    });
-
-    const pick = (new URLSearchParams(location.search).get('vehicle') ?? localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey;
-    const cfg = metroRoute ? { ...cityBus, color: [0.96, 0.96, 0.95] as [number, number, number], accent: METRO_RED } : GARAGE[pick] ?? GARAGE.car;
+    const cfg = metroRoute ? { ...cityBus, color: [0.96, 0.96, 0.95] as [number, number, number], accent: METRO_RED } : { ...(GARAGE[choice.vehicle] ?? GARAGE.car), color: choice.color };
     this.car = new VehicleController(app, cfg);
     // ?at=lat,lon,heading: exact viewpoint, e.g. to match a reference photograph's position and bearing.
-    const at = new URLSearchParams(location.search).get('at')?.split(',').map(Number);
+    const at = q.get('at')?.split(',').map(Number);
     if (at && at.length >= 2 && at.every(Number.isFinite)) { const [ax, az] = project(at[0], at[1]); this.car.physics.reset(ax, az, -((at[2] ?? 0) * Math.PI) / 180); }
     else if (metroStart.length >= 2) this.placeOnRoad(sx, sz, undefined, metroStart[1].x, metroStart[1].z);
     else this.placeOnRoad(sx, sz, spawn.road ? n => n === spawn.road : undefined);
@@ -156,7 +149,7 @@ export class Game {
     const cmp = new URLSearchParams(location.search).get('compare');
     if (cmp) { this.compare = new RouteCompare(app, p, this.cam, canvas); await this.compare.init(cmp); }
     window.addEventListener('keydown', e => { if (!(e.target instanceof HTMLInputElement)) this.compare?.key(e.code); });
-    this.weather = new Weather(app, [this.map.groundMat, this.groundMat]);
+    this.weather = new Weather(app, [this.map.groundMat, this.groundMat], this.map.roads, this.sound);
     this.settings = new Settings(v => {
       p.manual = v.manual;
       if (!v.manual && p.gear === 0) p.gear = 1;
@@ -271,6 +264,21 @@ export class Game {
     this.app.root.addChild(sea);
   }
 
+  /** Stream in the chunks around (x,z), driving the loading bar. */
+  private loadAround(x: number, z: number) {
+    const initial = this.map.wanted(x, z).slice(0, 9);
+    return new Promise<void>(resolve => {
+      const tick = () => {
+        this.map.update(x, z);
+        const done = initial.filter(k => this.map.isLoaded(k)).length;
+        this.hud.setLoading(done / initial.length);
+        if (done === initial.length || (this.map.pendingCount === 0 && done > 0)) resolve();
+        else setTimeout(tick, 50);
+      };
+      tick();
+    });
+  }
+
   /** Put the car on the nearest matching road, in the left-hand lane, facing along it. */
   /** Snap to the nearest road, left lane, facing along it (or towards (tx,tz) if given). */
   private placeOnRoad(x: number, z: number, nameFilter?: (name: string) => boolean, tx?: number, tz?: number) {
@@ -288,7 +296,7 @@ export class Game {
   private tickClock(dt: number) {
     const w = this.wallet;
     if (this.opts.timeFlow) w.tick(dt);
-    const light = lightFor(w.data.clock) === 'day' && this.opts.rain ? 'overcast' : lightFor(w.data.clock);
+    const clock = lightFor(w.data.clock), light = this.opts.rain && clock !== 'night' ? 'storm' : clock; // monsoon storm: dark sky by day
     if (light !== this.time.current) { this.time.set(light); this.hud.setTime(light); }
     const rush = isRush(w.data.clock);
     this.traffic.rush += Math.max(-dt / 15, Math.min(dt / 15, (rush ? 1 : 0) - this.traffic.rush));
@@ -349,7 +357,7 @@ export class Game {
     this.sound.update(dt, p, Math.max(drive.throttle, drive.brake * (p.gear < 0 ? 1 : 0)), drive.horn, this.traffic.rush, !!this.police?.pullingOver, drive.brake, this.traffic.vehicles);
     this.cam.update(dt, p, this.map.collision);
     this.sky.follow(this.camEntity.getPosition());
-    this.weather.update(dt, this.camEntity.getPosition());
+    this.weather.update(dt, this.camEntity.getPosition(), p);
     const t0 = performance.now();
     this.map.signals.update(dt);
     this.traffic.update(dt);
@@ -374,7 +382,15 @@ export class Game {
       this.streetName = hit && hit.dist < 25 ? hit.road.n || 'Unnamed road' : 'Off road';
     }
     const t3 = performance.now();
-    this.minimap.draw(this.map.roads, p.x, p.z, p.yaw);
+    const friends = this.mp?.friends() ?? [];
+    const spots = this.police?.hideouts ?? [];
+    this.minimap.draw(this.map.roads, p.x, p.z, p.yaw, friends, spots);
+    if ((this.friendsT -= dt) <= 0) {
+      this.friendsT = 0.25;
+      const geo = <T extends { x: number; z: number }>(l: T[]) => l.map(f => { const [lat, lon] = unproject(f.x, f.z); return { ...f, lat, lon }; });
+      if (this.mp) this.mapView.setFriends(geo(friends));
+      this.mapView.setSpots(geo(spots));
+    }
     const t4 = performance.now();
     // Slow-frame report: which system ate the frame (console + debug panel).
     if (t4 - t0 > 50) {
@@ -390,42 +406,17 @@ export class Game {
   }
 }
 
-/** Start menu: pick a mode (and a Lanka Metro route). ?mode=free|taxi|metro&route=CMxx skips it. */
-async function chooseMode(): Promise<{ mode: 'free' | 'taxi'; room?: string } | { mode: 'metro'; route: MetroRoute }> {
+/** Lobby (garage + mode). URL shortcuts skip it: ?mode=free|taxi|metro&route=CMxx, ?room=name, ?vehicle=car|... */
+async function chooseMode(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }): Promise<LobbyChoice> {
   const q = new URLSearchParams(location.search);
   let routes: MetroRoute[] = [];
   try { routes = (await (await fetch(`${GameConfig.dataUrl}/metro.json`)).json()).routes; } catch { /* metro mode unavailable */ }
-  const metro = (code: string | null) => { const r = routes.find(r => r.code === code) ?? routes.find(r => r.code === 'CM06'); return r ? { mode: 'metro' as const, route: r } : { mode: 'free' as const }; };
-  const m = q.get('mode');
-  const qRoom = q.get('room')?.trim();
-  if (qRoom && !m) return { mode: 'free', room: qRoom };
-  if (m === 'free' || m === 'taxi') return { mode: m, room: qRoom || undefined };
-  if (m === 'metro') return metro(q.get('route'));
-
-  const el = document.getElementById('modes')!, sel = document.getElementById('metro-route') as HTMLSelectElement;
-  const veh = document.getElementById('vehicle-pick') as HTMLSelectElement;
-  veh.value = localStorage.getItem('cmb-rider-vehicle') ?? 'car';
-  veh.onchange = () => localStorage.setItem('cmb-rider-vehicle', veh.value);
-  for (const r of routes) {
-    const n = playableStops(r).length, o = document.createElement('option');
-    o.value = r.code; o.textContent = `${r.code} · ${r.name} (${n} stops in the city)`; o.disabled = n < 2;
-    if (r.code === 'CM06') o.selected = true;
-    sel.append(o);
+  const m = q.get('mode'), qRoom = q.get('room')?.trim() || undefined;
+  if (!m && !qRoom) return showLobby(app, camera, at, routes);
+  const vehicle = (q.get('vehicle') ?? localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey, color = (GARAGE[vehicle] ?? GARAGE.car).color;
+  if (m === 'metro') {
+    const route = routes.find(r => r.code === q.get('route')) ?? routes.find(r => r.code === 'CM06');
+    if (route) return { mode: 'metro', route, vehicle: 'bus', color };
   }
-  el.hidden = false;
-  document.getElementById('loading')!.hidden = true;
-  return new Promise(resolve => {
-    el.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach(b => b.onclick = () => {
-      el.hidden = true;
-      document.getElementById('loading')!.hidden = false;
-      const mode = b.dataset.mode!;
-      if (mode === 'multi') {
-        const room = (document.getElementById('mp-room') as HTMLInputElement).value.trim() || 'colombo';
-        const name = (document.getElementById('mp-name') as HTMLInputElement).value.trim();
-        if (name) localStorage.setItem('cmb-rider-name', name);
-        return resolve({ mode: 'free', room });
-      }
-      resolve(mode === 'metro' ? metro(sel.value) : { mode: mode as 'free' | 'taxi' });
-    });
-  });
+  return { mode: m === 'taxi' ? 'taxi' : 'free', room: qRoom, vehicle, color };
 }

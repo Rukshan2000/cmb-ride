@@ -41,7 +41,7 @@ export class VehicleController {
     // Same profile-built sedan as the traffic (Axio/Corolla-style), painted with the config colour.
     const models = new ModelCache(this.app.graphicsDevice);
     const hex = (Math.round(c.color[0] * 255) << 16) | (Math.round(c.color[1] * 255) << 8) | Math.round(c.color[2] * 255);
-    const spec = { ...CATALOG.find(s => s.id === (c.model ?? 'sedan'))!, length: c.length, width: c.width, height: c.height, rider: 0x2a3a5a, helmet: 0x151515 };
+    const spec = { ...CATALOG.find(s => s.id === (c.model ?? 'sedan'))!, length: c.length, width: c.width, height: c.height, rider: 0x2a3a5a, helmet: 0x151515, axles: [-c.cgToFront, c.cgToRear] as [number, number] };
     this.body.addComponent('render', { meshInstances: models.body(spec, { color: hex, accent: c.accent }), castShadows: true });
     this.body.setLocalPosition(0, 0, 0);
     this.entity.addChild(this.body);
