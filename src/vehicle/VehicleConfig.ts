@@ -32,6 +32,7 @@ export interface VehicleConfig {
   engine?: EngineKind;      // engine sound (default petrol4)
   bike?: boolean;           // two-wheeler: leans into turns instead of rolling out
   accent?: number;          // livery band colour (bus)
+  stability?: number;       // ESC strength, 1/s (default 8; 0 = off)
 }
 
 /** Japanese-market compact sedan typical of Colombo streets (Axio/Allion class). */

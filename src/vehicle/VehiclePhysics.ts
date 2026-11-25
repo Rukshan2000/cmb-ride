@@ -131,7 +131,8 @@ export class VehiclePhysics {
       fxR = -Math.sign(u) * Math.min(1, Math.abs(u) / 0.4) * muR * fzR * 0.8;
       muR *= 0.5;
     }
-    let flR = tyreLateral(wr, u, fzR, c.corneringStiffness * fzR / (c.mass * G / 2), muR);
+    // Rear tyres ~30% stiffer than the front: mild understeer, so the car is stable without assists.
+    let flR = tyreLateral(wr, u, fzR, 1.3 * c.corneringStiffness * fzR / (c.mass * G / 2), muR);
     [fxR, flR] = frictionCircle(fxR, flR, muR * fzR);
 
     // --- Resistances.
@@ -144,6 +145,15 @@ export class VehiclePhysics {
     this.vx += (this.accelU * fx + this.accelW * lx) * dt;
     this.vz += (this.accelU * fz + this.accelW * lz) * dt;
     this.omega += (yawTorque / c.inertia) * dt;
+
+    // Stability control (ESC): pull the yaw rate towards what the steering asks for (bicycle model) and bleed off
+    // sideways slide, so a twitch of the keyboard doesn't become a spin. Handbrake turns it off for drifts.
+    if (!input.handbrake && speed > 1.5) {
+      const want = (u * Math.tan(d)) / L, k = Math.min(1, (c.stability ?? 8) * dt);
+      this.omega += (want - this.omega) * k;
+      const slide = (this.vx * lx + this.vz * lz) * k;
+      this.vx -= lx * slide; this.vz -= lz * slide;
+    }
 
     // Settle to a full stop instead of creeping.
     if (!drivePedal && speed < 0.15) { this.vx *= 0.8; this.vz *= 0.8; this.omega *= 0.8; }

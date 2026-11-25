@@ -1,6 +1,8 @@
 // Traffic-intelligence backend: the only place GROQ_API_KEY lives. Run: npm run backend
 // Node >= 22 (built-in TS stripping, fetch, loadEnvFile). No dependencies.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createHash } from 'node:crypto';
+import type { Duplex } from 'node:stream';
 
 try { process.loadEnvFile(new URL('../.env', import.meta.url).pathname); } catch { /* env may come from the host */ }
 const KEY = process.env.GROQ_API_KEY ?? '';
@@ -99,7 +101,96 @@ async function readBody(req: IncomingMessage, max = 8192): Promise<any> {
   return JSON.parse(Buffer.concat(chunks).toString() || 'null');
 }
 
-createServer(async (req, res) => {
+
+// --- multiplayer rooms ---------------------------------------------------------------------------
+// ponytail: HTTP polling (~10 Hz) relay, in memory, one process. Move to WebSockets if rooms get big or laggy.
+interface MpPlayer { id: string; name: string; model: string; color: number; x: number; y: number; z: number; yaw: number; v: number; cp: number; t: number }
+type MpEvent = { id: number; kind: 'race'; cps: [number, number][]; start: number; results: { id: string; name: string; ms: number }[] }
+  | { id: number; kind: 'tag'; it: string; since: number; tags: number; end: number };
+interface Room { players: Map<string, MpPlayer>; event: MpEvent | null }
+const rooms = new Map<string, Room>();
+let eventSeq = 1;
+setInterval(() => { const now = Date.now(); for (const [k, r] of rooms) if ([...r.players.values()].every(p => now - p.t > 5000)) rooms.delete(k); }, 30000).unref();
+const MODELS = ['sedan', 'bus', 'van', 'tuktuk', 'motorcycle'];
+
+export function mpStep(b: any, now = Date.now()) {
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/[^\w \-.]/g, '').slice(0, max) : '');
+  const num = (v: unknown, lim = 1e6) => (Number.isFinite(Number(v)) ? Math.max(-lim, Math.min(lim, Number(v))) : 0);
+  const roomId = str(b?.room, 24).toLowerCase(), id = str(b?.id, 24);
+  if (!roomId || !id) return null;
+  let room = rooms.get(roomId);
+  if (!room) rooms.set(roomId, (room = { players: new Map(), event: null }));
+  const me: MpPlayer = {
+    id, name: str(b.name, 16) || 'Rider', model: MODELS.includes(b.model) ? b.model : 'sedan', color: num(b.color, 0xffffff) | 0,
+    x: num(b.x), y: num(b.y, 1000), z: num(b.z), yaw: num(b.yaw, 100), v: num(b.v, 200), cp: Math.max(0, num(b.cp, 99) | 0), t: now,
+  };
+  room.players.set(id, me);
+  for (const [k, p] of room.players) if (now - p.t > 5000) room.players.delete(k); // dropped players
+  const ev = room.event;
+  // Start / stop events (any player may).
+  if (b.action === 'race' && Array.isArray(b.cps) && b.cps.length >= 2) {
+    const cps = b.cps.slice(0, 12).map((c: unknown[]) => [num(c?.[0]), num(c?.[1])] as [number, number]);
+    room.event = { id: eventSeq++, kind: 'race', cps, start: now + 5000, results: [] };
+  } else if (b.action === 'tag' && room.players.size >= 2) {
+    room.event = { id: eventSeq++, kind: 'tag', it: id, since: now + 3000, tags: 0, end: now + 180000 };
+  } else if (b.action === 'stop') room.event = null;
+  // Race finish: first report wins, time measured by the server clock.
+  else if (ev?.kind === 'race' && b.finished && now > ev.start && !ev.results.some(r => r.id === id) && me.cp >= ev.cps.length)
+    ev.results.push({ id, name: me.name, ms: now - ev.start });
+  // Tag: "it" touching anyone passes it on (3 s immunity after each tag).
+  if (ev?.kind === 'tag') {
+    if (now > ev.end || !room.players.has(ev.it)) room.event = null;
+    else if (now > ev.since) {
+      const it = room.players.get(ev.it)!;
+      for (const p of room.players.values()) if (p.id !== it.id && Math.hypot(p.x - it.x, p.z - it.z) < 5) { ev.it = p.id; ev.since = now + 3000; ev.tags++; break; }
+    }
+  }
+  return { now, room: roomId, id, players: [...room.players.values()].filter(p => p.id !== id), event: room.event };
+}
+
+export function mpLeave(roomId: string, id: string) { rooms.get(roomId)?.players.delete(id); }
+
+// --- WebSocket transport for /api/mp (RFC 6455, text frames only; no dependencies) -----------------
+// Client sends its state as JSON ~20 Hz; each message is answered with mpStep's room snapshot.
+function wsFrame(text: string): Buffer {
+  const data = Buffer.from(text), n = data.length;
+  const head = n < 126 ? Buffer.from([0x81, n]) : n < 65536 ? Buffer.from([0x81, 126, n >> 8, n & 255]) : Buffer.concat([Buffer.from([0x81, 127]), (() => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(n)); return b; })()]);
+  return Buffer.concat([head, data]);
+}
+
+function mpSocket(req: IncomingMessage, sock: Duplex) {
+  const key = req.headers['sec-websocket-key'];
+  if (req.url !== '/api/mp' || typeof key !== 'string') return sock.destroy();
+  const accept = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  sock.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+  let buf = Buffer.alloc(0), me: { room: string; id: string } | null = null;
+  const close = () => { if (me) mpLeave(me.room, me.id); sock.destroy(); };
+  sock.on('data', (chunk: Buffer) => {
+    buf = Buffer.concat([buf, chunk]);
+    if (buf.length > 65536) return close();
+    while (buf.length >= 2) {
+      const op = buf[0] & 15, masked = buf[1] & 128;
+      let len = buf[1] & 127, off = 2;
+      if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); off = 4; }
+      else if (len === 127) return close();               // > 64 KiB: never legitimate here
+      if (!masked) return close();                        // clients must mask (RFC 6455 5.1)
+      if (buf.length < off + 4 + len) return;
+      const mask = buf.subarray(off, off + 4), payload = Buffer.from(buf.subarray(off + 4, off + 4 + len));
+      for (let i = 0; i < len; i++) payload[i] ^= mask[i & 3];
+      buf = buf.subarray(off + 4 + len);
+      if (op === 8) return close();                                         // close
+      if (op === 9) { sock.write(Buffer.concat([Buffer.from([0x8a, len]), payload])); continue; } // ping -> pong
+      if (op !== 1) continue;                                               // only text frames are used
+      let r; try { r = mpStep(JSON.parse(payload.toString())); } catch { r = null; }
+      if (!r) { sock.write(wsFrame(JSON.stringify({ error: 'bad message' }))); continue; }
+      me = { room: r.room, id: r.id };
+      sock.write(wsFrame(JSON.stringify(r)));
+    }
+  });
+  sock.on('error', close); sock.on('end', close);
+}
+
+const server = createServer(async (req, res) => {
   if (req.method !== 'POST' || req.url !== '/api/traffic-scenario') return send(res, 404, { error: 'not found' });
   if (TOKEN && req.headers['x-traffic-token'] !== TOKEN) return send(res, 401, { error: 'unauthorized' });
   const ip = req.socket.remoteAddress ?? '?';
@@ -120,4 +211,6 @@ createServer(async (req, res) => {
     console.warn('[traffic-ai] upstream failure:', (e as Error).message); // never log the key or headers
     send(res, 502, { error: 'AI unavailable' });
   }
-}).listen(PORT, () => console.log(`traffic AI backend on :${PORT} (model ${MODEL}, key ${KEY ? 'loaded' : 'MISSING'})`));
+});
+server.on('upgrade', mpSocket);
+server.listen(PORT, () => console.log(`traffic AI backend on :${PORT} (model ${MODEL}, key ${KEY ? 'loaded' : 'MISSING'})`));

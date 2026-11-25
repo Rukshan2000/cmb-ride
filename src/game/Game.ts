@@ -5,6 +5,7 @@ import { MapChunkManager } from '../map/MapChunkManager';
 import { StaticChunkProvider } from '../map/MapLoader';
 import { project, unproject } from '../map/MapProjection';
 import { GeometryBuffer, vertexColorMaterial } from '../map/MeshUtil';
+import { groundMaterial } from '../roads/RoadMaterialSystem';
 import { HUD } from '../ui/HUD';
 import { MiniMap } from '../ui/MiniMap';
 import { VehicleController } from '../vehicle/VehicleController';
@@ -20,6 +21,7 @@ import { Pedestrians } from '../people/Pedestrians';
 import { Weather } from '../roads/Weather';
 import { Settings, type SettingValues } from '../ui/Settings';
 import { TaxiMode } from './modes/TaxiMode';
+import { Multiplayer } from './modes/Multiplayer';
 import { MetroBusMode, playableStops, type MetroRoute } from './modes/MetroBusMode';
 import { GameConfig } from './GameConfig';
 import { TimeOfDay } from '../roads/TimeOfDay';
@@ -54,6 +56,7 @@ export class Game {
   private trafficAI!: TrafficIntelligenceService;
   private debug?: TrafficDebugPanel;
   private mode?: { update(dt: number): void };
+  private mp?: Multiplayer;
   private compare?: RouteCompare;
   private police?: Police;
   private groundMat!: pc.StandardMaterial;
@@ -146,6 +149,10 @@ export class Game {
     if (choice.mode === 'taxi') this.mode = new TaxiMode(app, this.map, this.nav, p, modeHud, () => this.traffic.lastCollision, wallet);
     this.police = new Police(app, this.map, this.traffic, p, wallet, (m, ms) => navHud.toast(m, ms));
     if (metroRoute) this.mode = new MetroBusMode(app, metroRoute, this.nav, p, modeHud);
+    if (choice.mode !== 'metro' && choice.room) {
+      const hex = (Math.round(cfg.color[0] * 255) << 16) | (Math.round(cfg.color[1] * 255) << 8) | Math.round(cfg.color[2] * 255);
+      this.mp = new Multiplayer(app, camera, p, this.map, modeHud, choice.room, localStorage.getItem('cmb-rider-name') || 'Rider', cfg.model ?? 'sedan', hex);
+    }
     const cmp = new URLSearchParams(location.search).get('compare');
     if (cmp) { this.compare = new RouteCompare(app, p, this.cam, canvas); await this.compare.init(cmp); }
     window.addEventListener('keydown', e => { if (!(e.target instanceof HTMLInputElement)) this.compare?.key(e.code); });
@@ -190,6 +197,22 @@ export class Game {
     });
     sun.setEulerAngles(50, 35, 0); // tropical high sun
     app.root.addChild(sun);
+    sun.light!.shadowType = pc.SHADOW_PCF5_32F; // soft shadow edges
+    sun.light!.intensity = 1.6;                 // HDR: highlights roll off in the tonemapper and feed bloom
+
+    // Cinematic post stack (?nofx to disable on weak GPUs): HDR + ACES, SSAO, bloom, grading, vignette.
+    if (!new URLSearchParams(location.search).has('nofx')) {
+      const f = new pc.CameraFrame(app, camera.camera!);
+      f.rendering.toneMapping = pc.TONEMAP_ACES2;
+      f.rendering.samples = 4;
+      f.ssao.type = pc.SSAOTYPE_COMBINE; f.ssao.intensity = 0.6; f.ssao.radius = 2.5; f.ssao.samples = 12; f.ssao.blurEnabled = true;
+      f.bloom.intensity = 0.03; f.bloom.blurLevel = 16;
+      f.grading.enabled = true; f.grading.contrast = 1.12; f.grading.saturation = 1.18; f.grading.tint = new pc.Color(1, 0.97, 0.92); // warm Vice-City-style punch
+      f.colorEnhance.enabled = true; f.colorEnhance.vibrance = 0.25; f.colorEnhance.shadows = 0.15; f.colorEnhance.dehaze = 0.1;
+      f.vignette.enabled = true; f.vignette.intensity = 0.35; f.vignette.inner = 0.55; f.vignette.outer = 1.1;
+      f.fringing.enabled = true; f.fringing.intensity = 4;
+      f.update();
+    }
 
     // Ground: one large flat plane (Colombo's coastal plain is near sea level).
     const ground = new pc.Entity('ground');
@@ -218,8 +241,7 @@ export class Game {
     }
     const mesh = g.toMesh(this.app.graphicsDevice);
     if (!mesh) return;
-    const mat = vertexColorMaterial(true);
-    mat.diffuse = this.groundMat.diffuse.clone(); mat.diffuseVertexColor = false; mat.update();
+    const mat = groundMaterial(this.app.graphicsDevice);
     const e = new pc.Entity('terrain');
     e.addComponent('render', { meshInstances: [new pc.MeshInstance(mesh, mat)], castShadows: false, receiveShadows: true });
     this.app.root.addChild(e);
@@ -337,6 +359,7 @@ export class Game {
     this.debug?.update();
     this.nav.update(dt, this.streetName);
     this.mode?.update(dt);
+    this.mp?.update(dt);
     if (this.opts.police) this.police?.update(dt);
     if ((this.saveT -= dt) <= 0) { this.saveT = 5; this.wallet.savePosition(p.x, p.z, p.yaw); }
     this.cam.cinematic = this.police?.shot ?? null;
@@ -368,13 +391,15 @@ export class Game {
 }
 
 /** Start menu: pick a mode (and a Lanka Metro route). ?mode=free|taxi|metro&route=CMxx skips it. */
-async function chooseMode(): Promise<{ mode: 'free' | 'taxi' } | { mode: 'metro'; route: MetroRoute }> {
+async function chooseMode(): Promise<{ mode: 'free' | 'taxi'; room?: string } | { mode: 'metro'; route: MetroRoute }> {
   const q = new URLSearchParams(location.search);
   let routes: MetroRoute[] = [];
   try { routes = (await (await fetch(`${GameConfig.dataUrl}/metro.json`)).json()).routes; } catch { /* metro mode unavailable */ }
   const metro = (code: string | null) => { const r = routes.find(r => r.code === code) ?? routes.find(r => r.code === 'CM06'); return r ? { mode: 'metro' as const, route: r } : { mode: 'free' as const }; };
   const m = q.get('mode');
-  if (m === 'free' || m === 'taxi') return { mode: m };
+  const qRoom = q.get('room')?.trim();
+  if (qRoom && !m) return { mode: 'free', room: qRoom };
+  if (m === 'free' || m === 'taxi') return { mode: m, room: qRoom || undefined };
   if (m === 'metro') return metro(q.get('route'));
 
   const el = document.getElementById('modes')!, sel = document.getElementById('metro-route') as HTMLSelectElement;
@@ -394,6 +419,12 @@ async function chooseMode(): Promise<{ mode: 'free' | 'taxi' } | { mode: 'metro'
       el.hidden = true;
       document.getElementById('loading')!.hidden = false;
       const mode = b.dataset.mode!;
+      if (mode === 'multi') {
+        const room = (document.getElementById('mp-room') as HTMLInputElement).value.trim() || 'colombo';
+        const name = (document.getElementById('mp-name') as HTMLInputElement).value.trim();
+        if (name) localStorage.setItem('cmb-rider-name', name);
+        return resolve({ mode: 'free', room });
+      }
       resolve(mode === 'metro' ? metro(sel.value) : { mode: mode as 'free' | 'taxi' });
     });
   });

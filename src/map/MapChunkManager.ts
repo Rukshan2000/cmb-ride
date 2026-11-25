@@ -9,7 +9,7 @@ import type { BuildingData, MapIndex } from './MapTypes';
 import { GeometryBuffer, vertexColorMaterial } from './MeshUtil';
 import { buildRoads } from './RoadMeshBuilder';
 import { RoadNetwork } from './RoadNetwork';
-import { asphaltMaterial, lampHeadMaterial } from '../roads/RoadMaterialSystem';
+import { asphaltMaterial, lampHeadMaterial, plasterMaterial } from '../roads/RoadMaterialSystem';
 import { buildFurniture, signalGroups, type FurnitureBuffers } from '../roads/StreetFurniture';
 import { TrafficLightSystem } from '../roads/TrafficLightSystem';
 import { buildRoadside } from '../roads/RoadsideEnvironment';
@@ -33,7 +33,7 @@ export class MapChunkManager {
   /** Zebra crossings per loaded chunk [x,z,a,hw,signalled,...] (pedestrians). */
   readonly crossings = new Map<string, number[]>();
   readonly stops = new Map<string, { x: number; z: number; ux: number; uz: number; hw: number; group: number }[]>();
-  private buildingMat = vertexColorMaterial();
+  private buildingMat: pc.StandardMaterial;
   private glassMat = glassMaterial();
   private tankMat = tankMaterial();
   private tankMesh: pc.Mesh;
@@ -45,6 +45,7 @@ export class MapChunkManager {
   constructor(private app: pc.AppBase, private provider: MapDataProvider) {
     app.root.addChild(this.root);
     this.groundMat = asphaltMaterial(app.graphicsDevice);
+    this.buildingMat = plasterMaterial(app.graphicsDevice);
     this.tankMesh = pc.Mesh.fromGeometry(app.graphicsDevice, new pc.CylinderGeometry({ radius: 0.7, height: 1.4, capSegments: 10 }));
     this.landmarks = new LandmarkManager(app, GameConfig.dataUrl, this.root);
   }

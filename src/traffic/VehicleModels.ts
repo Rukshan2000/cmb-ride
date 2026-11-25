@@ -8,7 +8,7 @@ import type { VehicleSpec } from './VehicleCatalog';
 // with tumblehome, round wheels with rims, bumpers, mirrors, plates and lamps.
 // Local frame: +Y up, forward = -Z, x = right. Three buffers: paint (glossy), glass, trim (matte).
 
-interface Parts { paint: GeometryBuffer; glass: GeometryBuffer; trim: GeometryBuffer; noWheels?: boolean }
+interface Parts { paint: GeometryBuffer; glass: GeometryBuffer; trim: GeometryBuffer; lamp: GeometryBuffer; noWheels?: boolean } // lamp: emissive, blooms
 type Prof = [number, number][]; // [z, y] around the side outline
 
 const TYRE = 0x161616, RIM = 0xb9bcc0, BLACK = 0x1c1c1c, LAMP = 0xf2f0e6, TAIL = 0xa8121a, AMBER = 0xe08a1a, PLATE = 0xf0f0ea, CHROME = 0xc8cacc;
@@ -35,10 +35,10 @@ function extrude(g: GeometryBuffer, prof: Prof, hw: (y: number) => number, c: nu
   }
 }
 
-/** Wheel: tyre cylinder along X plus a rim disc on the outer face. */
+/** Wheel: tyre cylinder along X, dark dished rim face, five spokes and a hub cap on the outer face. */
 function wheel(p: Parts, x: number, z: number, r: number, w: number, rim = RIM) {
   if (p.noWheels) return; // player car: wheels are separate animated entities
-  const SEG = 14, g = p.trim, x0 = x - w / 2, x1 = x + w / 2, out = Math.sign(x) || 1;
+  const SEG = 28, g = p.trim, x0 = x - w / 2, x1 = x + w / 2, out = Math.sign(x) || 1;
   const b = g.vertexCount;
   for (let i = 0; i <= SEG; i++) {
     const a = (i / SEG) * Math.PI * 2, cy = Math.cos(a), cz = Math.sin(a);
@@ -46,21 +46,32 @@ function wheel(p: Parts, x: number, z: number, r: number, w: number, rim = RIM) 
     g.vertex(x1, r + cy * r, z + cz * r, 0, cy, cz, TYRE);
   }
   for (let i = 0; i < SEG; i++) { const a = b + i * 2; g.idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
-  for (const [xx, rr, col] of [[x1 * (out > 0 ? 1 : 0) + x0 * (out > 0 ? 0 : 1), r, TYRE], [x + (w / 2 + 0.005) * out, r * 0.62, rim]] as [number, number, number][]) {
+  const face = x + (w / 2) * out;
+  const disc = (xx: number, rr: number, col: number) => {
     const c = g.vertexCount;
     g.vertex(xx, r, z, out, 0, 0, col);
     for (let i = 0; i < SEG; i++) { const a = (i / SEG) * Math.PI * 2; g.vertex(xx, r + Math.cos(a) * rr, z + Math.sin(a) * rr, out, 0, 0, col); }
     for (let i = 0; i < SEG; i++) g.idx.push(c, c + 1 + i, c + 1 + ((i + 1) % SEG));
+  };
+  disc(x0 * (out > 0 ? 0 : 1) + x1 * (out > 0 ? 1 : 0), r, TYRE);  // sidewall
+  disc(face + 0.004 * out, r * 0.66, rim);                           // rim lip
+  disc(face + 0.006 * out, r * 0.58, 0x2a2b2d);                      // dark dish / brake behind spokes
+  for (let k = 0; k < 5; k++) {                                       // spokes
+    const a = (k / 5) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), pa = -sa, pb = ca, hw = r * 0.07, xx = face + 0.012 * out;
+    const c = g.vertexCount;
+    for (const [d, s2] of [[0.12, -1], [0.12, 1], [0.6, 1], [0.6, -1]]) g.vertex(xx, r + ca * r * d + pa * hw * s2, z + sa * r * d + pb * hw * s2, out, 0, 0, rim);
+    g.idx.push(c, c + 1, c + 2, c, c + 2, c + 3);
   }
+  disc(face + 0.016 * out, r * 0.16, CHROME);                        // hub cap
 }
 
 /** Front/rear details common to four-wheelers: lamps, plates, bumpers, mirrors. */
 function details(p: Parts, L: number, W: number, lampY: number, bumperY: number, mirrorY: number, mirrorZ: number) {
   const t = p.trim;
   for (const s of [-1, 1]) {
-    box(t, s * (W / 2 - 0.28), lampY, -L / 2 - 0.015, 0, -1, 0.34, 0.14, 0.05, LAMP);
-    box(t, s * (W / 2 - 0.12), lampY, -L / 2 + 0.02, 0, -1, 0.06, 0.1, 0.05, AMBER);
-    box(t, s * (W / 2 - 0.22), lampY + 0.02, L / 2 + 0.015, 0, -1, 0.3, 0.16, 0.05, TAIL);
+    box(p.lamp, s * (W / 2 - 0.28), lampY, -L / 2 - 0.015, 0, -1, 0.34, 0.14, 0.05, LAMP);
+    box(p.lamp, s * (W / 2 - 0.12), lampY, -L / 2 + 0.02, 0, -1, 0.06, 0.1, 0.05, AMBER);
+    box(p.lamp, s * (W / 2 - 0.22), lampY + 0.02, L / 2 + 0.015, 0, -1, 0.3, 0.16, 0.05, TAIL);
     box(t, s * (W / 2 + 0.08), mirrorY, mirrorZ, 0, -1, 0.16, 0.12, 0.1, BLACK); // mirror
   }
   box(t, 0, bumperY, -L / 2 - 0.03, 0, -1, W - 0.1, 0.2, 0.08, BLACK);
@@ -92,6 +103,18 @@ function car(p: Parts, s: VehicleSpec) {
   const wr = 0.31;
   for (const z of [f + 0.82, r - 0.72]) for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.13), z, wr, 0.2);
   details(p, L, W, 0.66, 0.4, belt + 0.08, f + 1.2);
+  // Body detailing: grille, door shut lines, handles, chrome window line, black sills, wheel-arch liners.
+  const t = p.trim, dz = (bPillar - (f + 1.1));
+  box(t, 0, 0.5, f - 0.02, 0, -1, W - 0.75, 0.14, 0.04, 0x0d0d0e);
+  for (let k = 0; k < 4; k++) box(t, 0, 0.51 + k * 0.035, f - 0.03, 0, -1, W - 0.78, 0.008, 0.02, CHROME);
+  for (const side of [-1, 1]) {
+    const sx = side * (W / 2 + 0.003);
+    for (const z of [f + 1.1, bPillar, bPillar + dz * (hatch ? 0.8 : 1)]) box(t, sx, sill + 0.1, z, 0, -1, 0.006, belt - sill - 0.12, 0.012, 0x0a0a0a);
+    for (const z of [bPillar - 0.25, bPillar + dz * (hatch ? 0.8 : 1) - 0.25]) box(t, side * (W / 2 + 0.008), belt - 0.15, z, 0, -1, 0.02, 0.035, 0.16, CHROME);
+    box(t, side * (W / 2 - 0.03), belt - 0.01, (g[0][0] + g[g.length - 1][0]) / 2, 0, -1, 0.012, 0.022, g[g.length - 1][0] - g[0][0], CHROME);
+    box(t, side * (W / 2 - 0.02), sill - 0.02, 0, 0, -1, 0.05, 0.1, L - 2.2, 0x161616);
+    for (const z of [f + 0.82, r - 0.72]) box(t, side * (W / 2 - 0.12), wr * 2 - 0.02, z, 0, -1, 0.22, 0.06, wr * 2.3, 0x0e0e0e);
+  }
 }
 
 function van(p: Parts, s: VehicleSpec) {
@@ -149,11 +172,11 @@ function metroBus(p: Parts, s: VehicleSpec) {
   for (let z = f + 1.9; z < r - 0.6; z += 1.5) for (const side of [-1, 1]) box(p.trim, side * (W / 2 + 0.005), 1.05, z, 0, -1, 0.02, H - 1.37, 0.07, 0x1a1a1a);
   for (const z of [f + 1.2, f + 4.6]) box(p.glass, -(W / 2 + 0.01), 0.35, z, 0, -1, 0.02, H - 0.7, 1.1, 0xffffff);
   box(p.trim, 0, H - 0.55, f - 0.03, 0, -1, W - 0.6, 0.22, 0.03, 0x0a0a0a);
-  box(p.trim, 0, H - 0.52, f - 0.04, 0, -1, W - 0.9, 0.14, 0.02, AMBER);
+  box(p.lamp, 0, H - 0.52, f - 0.04, 0, -1, W - 0.9, 0.14, 0.02, AMBER);
   box(p.paint, 0, H, -0.5, 0, -1, W - 0.5, 0.28, 3.2, WHITE);
-  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.35), 0.55, f - 0.025, 0, -1, 0.45, 0.14, 0.04, LAMP); // LED headlamps
+  for (const side of [-1, 1]) box(p.lamp, side * (W / 2 - 0.35), 0.55, f - 0.025, 0, -1, 0.45, 0.14, 0.04, LAMP); // LED headlamps
   for (const z of [f + 2.0, r - 2.5]) for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.32), z, 0.5, 0.3, 0x5a5d60);
-  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.3), 0.6, r + 0.01, 0, -1, 0.2, 0.3, 0.03, TAIL);
+  for (const side of [-1, 1]) box(p.lamp, side * (W / 2 - 0.3), 0.6, r + 0.01, 0, -1, 0.2, 0.3, 0.03, TAIL);
 }
 
 function lorry(p: Parts, s: VehicleSpec) {
@@ -201,10 +224,10 @@ function tuktuk(p: Parts, s: VehicleSpec) {
   box(p.trim, 0, 1.42, -0.1, 0, -1, 0.21, 0.24, 0.22, 0x5c3e2a);
   box(p.trim, 0, 1.62, -0.08, 0, -1, 0.23, 0.07, 0.23, 0x141010);
   // Front: round headlamp on the nose, indicators, mudguard over the wheel; rear lamps + plate.
-  box(p.trim, 0, 0.66, f - 0.04, 0, -1, 0.18, 0.18, 0.06, LAMP);
-  for (const side of [-1, 1]) box(p.trim, side * 0.3, 0.88, f + 0.06, 0, -1, 0.06, 0.05, 0.04, AMBER);
+  box(p.lamp, 0, 0.66, f - 0.04, 0, -1, 0.18, 0.18, 0.06, LAMP);
+  for (const side of [-1, 1]) box(p.lamp, side * 0.3, 0.88, f + 0.06, 0, -1, 0.06, 0.05, 0.04, AMBER);
   extrude(p.trim, [[f - 0.12, 0.42], [f - 0.05, 0.5], [f + 0.4, 0.5], [f + 0.45, 0.4], [f + 0.38, 0.44], [f - 0.05, 0.44]], () => 0.08, BLACK);
-  for (const side of [-1, 1]) box(p.trim, side * (W / 2 - 0.16), 0.58, r + 0.01, 0, -1, 0.12, 0.1, 0.04, TAIL);
+  for (const side of [-1, 1]) box(p.lamp, side * (W / 2 - 0.16), 0.58, r + 0.01, 0, -1, 0.12, 0.1, 0.04, TAIL);
   box(p.trim, 0, 0.42, r + 0.02, 0, -1, 0.42, 0.13, 0.02, PLATE);
   wheel(p, 0, f + 0.15, 0.22, 0.12);
   for (const side of [-1, 1]) wheel(p, side * (W / 2 - 0.1), r - 0.45, 0.22, 0.14);
@@ -222,8 +245,8 @@ function motorcycle(p: Parts, s: VehicleSpec) {
   box(p.trim, 0, 0.86, 0.25, 0, -1, 0.26, 0.09, 0.55, BLACK);                       // seat
   box(p.trim, 0, 1.0, f + 0.32, 0, -1, 0.64, 0.04, 0.04, CHROME);                   // handlebar
   box(p.trim, 0, 0.45, f + 0.32, 0, -1, 0.06, 0.6, 0.06, CHROME);                   // forks
-  box(p.trim, 0, 0.88, f + 0.22, 0, -1, 0.16, 0.14, 0.06, LAMP);
-  box(p.trim, 0, 0.82, r - 0.08, 0, -1, 0.12, 0.08, 0.05, TAIL);
+  box(p.lamp, 0, 0.88, f + 0.22, 0, -1, 0.16, 0.14, 0.06, LAMP);
+  box(p.lamp, 0, 0.82, r - 0.08, 0, -1, 0.12, 0.08, 0.05, TAIL);
   wheel(p, 0, f + 0.32, 0.3, 0.1); wheel(p, 0, r - 0.32, 0.3, 0.12);
   // Rider: legs, torso, arms, helmet (helmets are compulsory in Sri Lanka).
   const shirt = s.rider ?? 0x2a3a5a;
@@ -234,7 +257,7 @@ function motorcycle(p: Parts, s: VehicleSpec) {
 }
 
 export function buildModel(spec: VehicleSpec, noWheels = false): Parts {
-  const p: Parts = { paint: new GeometryBuffer(), glass: new GeometryBuffer(), trim: new GeometryBuffer(), noWheels };
+  const p: Parts = { paint: new GeometryBuffer(), glass: new GeometryBuffer(), trim: new GeometryBuffer(), lamp: new GeometryBuffer(), noWheels };
   ({ tuktuk, motorcycle, car, van, bus, lorry } as Record<string, (p: Parts, s: VehicleSpec) => void>)[spec.category](p, spec);
   return p;
 }
@@ -272,11 +295,19 @@ export function randomLook(spec: VehicleSpec, r: () => number): Look {
   }
 }
 
+/** Every ModelCache's lamp material, so time of day can switch all vehicle lights at once. */
+const lampMats: pc.StandardMaterial[] = [];
+let lampsOn = false;
+export function setVehicleLamps(on: boolean) {
+  lampsOn = on;
+  for (const m of lampMats) { m.emissiveIntensity = on ? 1.6 : 0; m.update(); }
+}
+
 /** Mesh cache per (kind, look): each distinct model is built once and shared. */
 export class ModelCache {
   private meshes = new Map<string, pc.MeshInstance[]>();
   readonly hazardMat: pc.StandardMaterial;
-  private mats: { paint: pc.StandardMaterial; glass: pc.StandardMaterial; trim: pc.StandardMaterial };
+  private mats: { paint: pc.StandardMaterial; glass: pc.StandardMaterial; trim: pc.StandardMaterial; lamp: pc.StandardMaterial };
   private hazardMesh: pc.Mesh;
 
   constructor(private device: pc.GraphicsDevice) {
@@ -285,7 +316,11 @@ export class ModelCache {
       m.diffuseVertexColor = true; m.gloss = gloss; m.useMetalness = true; m.metalness = metal; m.cull = pc.CULLFACE_NONE;
       m.update(); return m;
     };
-    this.mats = { paint: mat(0.62, 0.25), glass: mat(0.92, 0.1), trim: mat(0.2, 0) };
+    this.mats = { paint: mat(0.7, 0.35), glass: mat(0.95, 0.1), trim: mat(0.35, 0.2), lamp: mat(0.9, 0) };
+    // Lens colour by day; lit (emissive, feeds the bloom) at sunset/night via setVehicleLamps.
+    const l = this.mats.lamp; l.emissive = new pc.Color(1, 1, 1); l.emissiveVertexColor = true; l.emissiveIntensity = lampsOn ? 1.6 : 0; l.update();
+    lampMats.push(l);
+    this.mats.paint.clearCoat = 0.8; this.mats.paint.clearCoatGloss = 0.92; this.mats.paint.update(); // lacquered car paint
     this.mats.glass.diffuse = new pc.Color(0.12, 0.15, 0.18); this.mats.glass.diffuseVertexColor = false; this.mats.glass.update();
     this.hazardMat = new pc.StandardMaterial();
     this.hazardMat.emissive = new pc.Color(1, 0.55, 0.05);
@@ -298,12 +333,12 @@ export class ModelCache {
   /** Body only (no wheels), for the player's car whose wheels steer and spin. */
   body(spec: VehicleSpec, look: Look): pc.MeshInstance[] {
     const b = buildModel({ ...spec, ...look } as VehicleSpec, true);
-    return (['paint', 'glass', 'trim'] as const).flatMap(k => { const m = b[k].toMesh(this.device); return m ? [new pc.MeshInstance(m, this.mats[k])] : []; });
+    return (['paint', 'glass', 'trim', 'lamp'] as const).flatMap(k => { const m = b[k].toMesh(this.device); return m ? [new pc.MeshInstance(m, this.mats[k])] : []; });
   }
 
   /** One wheel (tyre + rim) centred at the origin, rim facing +X. */
   wheel(radius: number, width: number): pc.MeshInstance {
-    const p: Parts = { paint: new GeometryBuffer(), glass: new GeometryBuffer(), trim: new GeometryBuffer() };
+    const p: Parts = { paint: new GeometryBuffer(), glass: new GeometryBuffer(), trim: new GeometryBuffer(), lamp: new GeometryBuffer() };
     wheel(p, 0.0001, 0, radius, width);
     const m = p.trim.toMesh(this.device)!;
     return new pc.MeshInstance(m, this.mats.trim);
@@ -314,7 +349,7 @@ export class ModelCache {
     let parts = this.meshes.get(key);
     if (!parts) {
       const b = buildModel({ ...spec, ...look } as VehicleSpec);
-      parts = (['paint', 'glass', 'trim'] as const).flatMap(k => { const m = b[k].toMesh(this.device); return m ? [new pc.MeshInstance(m, this.mats[k])] : []; });
+      parts = (['paint', 'glass', 'trim', 'lamp'] as const).flatMap(k => { const m = b[k].toMesh(this.device); return m ? [new pc.MeshInstance(m, this.mats[k])] : []; });
       this.meshes.set(key, parts);
     }
     const root = new pc.Entity(spec.id);

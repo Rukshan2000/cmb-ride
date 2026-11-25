@@ -28,7 +28,14 @@ export class GeometryBuffer {
     mesh.setPositions(pos);
     mesh.setNormals(this.nrm);
     mesh.setColors32(this.col);
-    mesh.setUvs(0, this.pos.filter((_, i) => i % 3 !== 1).map(v => v / 7)); // planar XZ, 7 m tiles
+    // Box mapping, 7 m tiles: floors/roofs use XZ, walls run along their facing axis with V = height.
+    const uv: number[] = [];
+    for (let i = 0; i < this.pos.length; i += 3) {
+      const [x, y, z] = [this.pos[i], this.pos[i + 1], this.pos[i + 2]], [nx, ny, nz] = [this.nrm[i], this.nrm[i + 1], this.nrm[i + 2]];
+      if (Math.abs(ny) > 0.7) uv.push(x / 7, z / 7);
+      else uv.push((Math.abs(nx) > Math.abs(nz) ? z : x) / 7, y / 7);
+    }
+    mesh.setUvs(0, uv);
     mesh.setIndices(this.vertexCount > 65535 ? new Uint32Array(this.idx) : new Uint16Array(this.idx));
     mesh.update();
     return mesh;

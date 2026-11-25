@@ -8,7 +8,7 @@ export class Sky {
   readonly entity = new pc.Entity('sky');
   private mat = new pc.StandardMaterial();
 
-  constructor(app: pc.AppBase, radius: number) {
+  constructor(private app: pc.AppBase, radius: number) {
     const W = 512, H = 256, data = new Uint8Array(W * H * 4);
     const N = 16, grid = Array.from({ length: 3 }, (_, o) => { const n = N << o; return { n, v: Float32Array.from({ length: n * n }, Math.random) }; });
     const noise = (u: number, v: number) => grid.reduce((s, { n, v: g }, o) => {
@@ -29,6 +29,9 @@ export class Sky {
     }
     const tex = new pc.Texture(app.graphicsDevice, { width: W, height: H, format: pc.PIXELFORMAT_RGBA8, mipmaps: true, addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
     tex.lock().set(data); tex.unlock();
+    // Same sky as image-based lighting: reflections on glass, paint and wet roads, plus sky-coloured ambient.
+    tex.projection = pc.TEXTUREPROJECTION_EQUIRECT;
+    app.scene.envAtlas = pc.EnvLighting.generateAtlas(pc.EnvLighting.generateLightingSource(tex));
     const m = this.mat;
     m.diffuse = new pc.Color(0, 0, 0);
     m.emissiveMap = tex;
@@ -48,6 +51,7 @@ export class Sky {
   tint(sky: number[]) {
     this.mat.emissive = new pc.Color(sky[0] / DAY_SKY[0], sky[1] / DAY_SKY[1], sky[2] / DAY_SKY[2]);
     this.mat.update();
+    this.app.scene.skyboxIntensity = Math.max(0.05, (sky[0] + sky[1] + sky[2]) / (DAY_SKY[0] + DAY_SKY[1] + DAY_SKY[2])); // dim reflections at night
   }
 
   follow(pos: pc.Vec3) { this.entity.setPosition(pos.x, 0, pos.z); }

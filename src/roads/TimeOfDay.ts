@@ -1,11 +1,12 @@
 import * as pc from 'playcanvas';
 import type { Sky } from './Sky';
+import { setVehicleLamps } from '../traffic/VehicleModels';
 
 const PRESETS = {
-  day:      { sky: [0.62, 0.76, 0.9],  sun: [1, 0.96, 0.88], sunI: 1.1,  pitch: 50, amb: [0.45, 0.47, 0.5],  lamp: 0 },
-  overcast: { sky: [0.66, 0.69, 0.72], sun: [0.9, 0.92, 0.95], sunI: 0.45, pitch: 70, amb: [0.55, 0.56, 0.58], lamp: 0 },
-  sunset:   { sky: [0.95, 0.62, 0.42], sun: [1, 0.62, 0.35], sunI: 0.8,  pitch: 12, amb: [0.38, 0.32, 0.32], lamp: 0.6 },
-  night:    { sky: [0.03, 0.04, 0.08], sun: [0.5, 0.6, 0.85], sunI: 0.06, pitch: 40, amb: [0.07, 0.08, 0.12], lamp: 3 },
+  day:      { sky: [0.55, 0.74, 0.95], sun: [1, 0.93, 0.8],  sunI: 1.6,  pitch: 50, amb: [0.42, 0.45, 0.52], lamp: 0 },
+  overcast: { sky: [0.66, 0.69, 0.72], sun: [0.9, 0.92, 0.95], sunI: 0.6, pitch: 70, amb: [0.55, 0.56, 0.58], lamp: 0 },
+  sunset:   { sky: [1.0, 0.55, 0.38],  sun: [1, 0.55, 0.28], sunI: 1.3,  pitch: 12, amb: [0.42, 0.3, 0.36],  lamp: 2 },   // golden hour
+  night:    { sky: [0.03, 0.04, 0.1],  sun: [0.5, 0.6, 0.85], sunI: 0.06, pitch: 40, amb: [0.08, 0.08, 0.16], lamp: 6 },  // neon-ish glow, blooms
 };
 export type TimeName = keyof typeof PRESETS;
 const POOL = 8; // ponytail: 8 real point lights moved to the lamps nearest the car; the rest only glow
@@ -43,6 +44,7 @@ export class TimeOfDay {
     this.sky?.tint(p.sky);
     this.lampMat.emissiveIntensity = p.lamp;
     this.lampMat.update();
+    setVehicleLamps(p.lamp > 1); // sunset + night
   }
 
   /** Move pooled lights to the nearest lamp heads. Call a few times per second. */
