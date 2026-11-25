@@ -1,0 +1,1124 @@
+[
+ {
+  "id": "colombo_landmark_001",
+  "name": "Lotus Tower",
+  "latitude": 6.92715,
+  "longitude": 79.85825,
+  "osm": [
+   728831229
+  ],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [
+   {
+    "path": "buildings/refs/728831229/2603457393291312.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=2603457393291312",
+    "lat": 6.926947,
+    "lon": 79.861725,
+    "heading": 277,
+    "captured": "2020-01-15",
+    "distance": 376
+   },
+   {
+    "path": "buildings/refs/728831229/539053630586430.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=539053630586430",
+    "lat": 6.929962,
+    "lon": 79.856936,
+    "heading": 136,
+    "captured": "2020-06-09",
+    "distance": 361
+   },
+   {
+    "path": "buildings/refs/728831229/434674500940174.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=434674500940174",
+    "lat": 6.930079,
+    "lon": 79.85683,
+    "heading": 140,
+    "captured": "2020-06-09",
+    "distance": 378
+   }
+  ],
+  "source": "OSM footprint",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_002",
+  "name": "World Trade Center Colombo",
+  "latitude": 6.93315,
+  "longitude": 79.84345,
+  "osm": [],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "approximate coordinate (verify)",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_003",
+  "name": "Old Parliament (Presidential Secretariat)",
+  "latitude": 6.93205,
+  "longitude": 79.84305,
+  "osm": [
+   340617005
+  ],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [
+   {
+    "path": "buildings/refs/340617005/1048857807538187.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1048857807538187",
+    "lat": 6.93139,
+    "lon": 79.842613,
+    "heading": 162,
+    "captured": "2026-07-19",
+    "distance": 58
+   },
+   {
+    "path": "buildings/refs/340617005/1304499925090072.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1304499925090072",
+    "lat": 6.931229,
+    "lon": 79.842383,
+    "heading": 141,
+    "captured": "2026-07-19",
+    "distance": 66
+   },
+   {
+    "path": "buildings/refs/340617005/764973048317637.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=764973048317637",
+    "lat": 6.930679,
+    "lon": 79.842366,
+    "heading": 86,
+    "captured": "2023-01-03",
+    "distance": 68
+   }
+  ],
+  "source": "OSM footprint",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_004",
+  "name": "Galle Face Hotel",
+  "latitude": 6.9199,
+  "longitude": 79.8479,
+  "osm": [],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "approximate coordinate (verify)",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_005",
+  "name": "Jami Ul-Alfar Mosque",
+  "latitude": 6.9378,
+  "longitude": 79.8513,
+  "osm": [],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "approximate coordinate (verify)",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_006",
+  "name": "Gangaramaya Temple",
+  "latitude": 6.9166,
+  "longitude": 79.8564,
+  "osm": [
+   1054624855
+  ],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "OSM footprint",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_007",
+  "name": "Independence Memorial Hall",
+  "latitude": 6.9041,
+  "longitude": 79.8686,
+  "osm": [
+   1078848223
+  ],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "OSM footprint",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_landmark_008",
+  "name": "Colombo National Museum",
+  "latitude": 6.9104,
+  "longitude": 79.8612,
+  "osm": [],
+  "buildingType": "landmark",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "heading": 0,
+  "scale": 1,
+  "references": [],
+  "source": "approximate coordinate (verify)",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1151387029",
+  "name": "",
+  "latitude": 6.939495,
+  "longitude": 79.854848,
+  "osm": [
+   1151387029
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 1151387029 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_355230315",
+  "name": "",
+  "latitude": 6.934545,
+  "longitude": 79.847312,
+  "osm": [
+   355230315
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/355230315/1560607158904030.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1560607158904030",
+    "lat": 6.933986,
+    "lon": 79.847552,
+    "heading": 347,
+    "captured": "2026-07-20",
+    "distance": 68
+   },
+   {
+    "path": "buildings/refs/355230315/1715422499410917.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1715422499410917",
+    "lat": 6.934138,
+    "lon": 79.847525,
+    "heading": 356,
+    "captured": "2026-07-20",
+    "distance": 51
+   }
+  ],
+  "source": "OSM way 355230315 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_374793744",
+  "name": "Cargills Building (Cargills Main Store)",
+  "latitude": 6.935806,
+  "longitude": 79.84473,
+  "osm": [
+   374793744
+  ],
+  "buildingType": "commercial",
+  "architecturalStyle": "Edwardian colonial commercial (1906), arcaded",
+  "primaryColor": "#b4574f",
+  "secondaryColors": [
+   "#e9e0d2",
+   "#9a463f"
+  ],
+  "roofType": "flat behind balustraded parapet",
+  "model": "buildings/models/cargills.glb",
+  "references": [
+   {
+    "path": "buildings/refs/374793744/1050075614103820.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1050075614103820",
+    "lat": 6.93637,
+    "lon": 79.845006,
+    "heading": 211,
+    "captured": "2026-07-19",
+    "distance": 70
+   },
+   {
+    "path": "buildings/refs/374793744/1384987460250897.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1384987460250897",
+    "lat": 6.935149,
+    "lon": 79.844901,
+    "heading": 350,
+    "captured": "2026-07-19",
+    "distance": 76
+   },
+   {
+    "path": "buildings/refs/374793744/1021544853816444.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1021544853816444",
+    "lat": 6.936245,
+    "lon": 79.844526,
+    "heading": 142,
+    "captured": "2026-07-19",
+    "distance": 54
+   }
+  ],
+  "source": "OSM way 374793744 footprint; fa\u00e7ade from Mapillary photos listed in references; scripts/models/cargills.ts",
+  "confidence": "reference_based",
+  "floors": 2
+ },
+ {
+  "id": "colombo_osm_114472801",
+  "name": "",
+  "latitude": 6.946395,
+  "longitude": 79.855385,
+  "osm": [
+   114472801
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 114472801 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_810445696",
+  "name": "Serene Apartment",
+  "latitude": 6.851072,
+  "longitude": 79.862527,
+  "osm": [
+   810445696
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 17,
+  "height": 56.9,
+  "model": "",
+  "references": [],
+  "source": "OSM way 810445696 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_537668335",
+  "name": "",
+  "latitude": 6.897446,
+  "longitude": 79.87669,
+  "osm": [
+   537668335
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 537668335 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_224056305",
+  "name": "SriLanka Exibition and Convention Center",
+  "latitude": 6.932353,
+  "longitude": 79.849264,
+  "osm": [
+   224056305
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/224056305/2589567618142319.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=2589567618142319",
+    "lat": 6.932567,
+    "lon": 79.849463,
+    "heading": 236,
+    "captured": "2026-07-20",
+    "distance": 32
+   }
+  ],
+  "source": "OSM way 224056305 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_533355035",
+  "name": "Altair Building",
+  "latitude": 6.918897,
+  "longitude": 79.854439,
+  "osm": [
+   533355035
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 68,
+  "height": 240,
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/533355035/766916807357869.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "sadeepa",
+    "url": "https://www.mapillary.com/app/?pKey=766916807357869",
+    "lat": 6.917256,
+    "lon": 79.857633,
+    "heading": 311,
+    "captured": "2018-01-06",
+    "distance": 397
+   },
+   {
+    "path": "buildings/refs/533355035/137641435068580.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=137641435068580",
+    "lat": 6.91799,
+    "lon": 79.857992,
+    "heading": 270,
+    "captured": "2020-01-15",
+    "distance": 405
+   }
+  ],
+  "source": "OSM way 533355035 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1466879257",
+  "name": "",
+  "latitude": 6.916078,
+  "longitude": 79.865181,
+  "osm": [
+   1466879257
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/1466879257/177340237620900.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=177340237620900",
+    "lat": 6.9155,
+    "lon": 79.86482,
+    "heading": 14,
+    "captured": "2020-01-15",
+    "distance": 76
+   },
+   {
+    "path": "buildings/refs/1466879257/144776087633479.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=144776087633479",
+    "lat": 6.915643,
+    "lon": 79.864823,
+    "heading": 12,
+    "captured": "2020-01-15",
+    "distance": 63
+   }
+  ],
+  "source": "OSM way 1466879257 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_386050443",
+  "name": "Sri Jinaratana Technical College",
+  "latitude": 6.915644,
+  "longitude": 79.855445,
+  "osm": [
+   386050443
+  ],
+  "buildingType": "civic",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 6,
+  "height": 20.6,
+  "model": "",
+  "references": [],
+  "source": "OSM way 386050443 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1026657880",
+  "name": "",
+  "latitude": 6.895981,
+  "longitude": 79.857086,
+  "osm": [
+   1026657880
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/1026657880/988665932277159.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=988665932277159",
+    "lat": 6.896153,
+    "lon": 79.857417,
+    "heading": 240,
+    "captured": "2023-07-20",
+    "distance": 41
+   },
+   {
+    "path": "buildings/refs/1026657880/689629766535417.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=689629766535417",
+    "lat": 6.896116,
+    "lon": 79.857212,
+    "heading": 224,
+    "captured": "2023-07-20",
+    "distance": 20
+   },
+   {
+    "path": "buildings/refs/1026657880/839310847452955.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=839310847452955",
+    "lat": 6.896142,
+    "lon": 79.857315,
+    "heading": 222,
+    "captured": "2023-07-20",
+    "distance": 31
+   }
+  ],
+  "source": "OSM way 1026657880 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_514629624",
+  "name": "Salvation Army",
+  "latitude": 6.922466,
+  "longitude": 79.852723,
+  "osm": [
+   514629624
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/514629624/338455157698949.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=338455157698949",
+    "lat": 6.923107,
+    "lon": 79.852565,
+    "heading": 171,
+    "captured": "2020-01-15",
+    "distance": 73
+   },
+   {
+    "path": "buildings/refs/514629624/297750691834210.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=297750691834210",
+    "lat": 6.923022,
+    "lon": 79.852623,
+    "heading": 142,
+    "captured": "2020-01-15",
+    "distance": 63
+   }
+  ],
+  "source": "OSM way 514629624 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_262531868",
+  "name": "White Triangle Building",
+  "latitude": 6.936818,
+  "longitude": 79.846471,
+  "osm": [
+   262531868
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 5,
+  "height": 17.3,
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/262531868/1577446053793648.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1577446053793648",
+    "lat": 6.937266,
+    "lon": 79.846139,
+    "heading": 141,
+    "captured": "2026-07-19",
+    "distance": 62
+   },
+   {
+    "path": "buildings/refs/262531868/1441066604513043.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1441066604513043",
+    "lat": 6.937323,
+    "lon": 79.846068,
+    "heading": 143,
+    "captured": "2026-07-19",
+    "distance": 72
+   }
+  ],
+  "source": "OSM way 262531868 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_533957130",
+  "name": "",
+  "latitude": 6.931628,
+  "longitude": 79.860857,
+  "osm": [
+   533957130
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/533957130/919016672005486.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=919016672005486",
+    "lat": 6.931418,
+    "lon": 79.861308,
+    "heading": 323,
+    "captured": "2020-01-15",
+    "distance": 55
+   },
+   {
+    "path": "buildings/refs/533957130/482896899456088.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=482896899456088",
+    "lat": 6.931335,
+    "lon": 79.861398,
+    "heading": 324,
+    "captured": "2020-01-15",
+    "distance": 68
+   }
+  ],
+  "source": "OSM way 533957130 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_520706574",
+  "name": "",
+  "latitude": 6.931881,
+  "longitude": 79.8543,
+  "osm": [
+   520706574
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/520706574/3042201959335113.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=3042201959335113",
+    "lat": 6.931411,
+    "lon": 79.854775,
+    "heading": 299,
+    "captured": "2020-01-15",
+    "distance": 74
+   },
+   {
+    "path": "buildings/refs/520706574/475742646988589.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "coreagc",
+    "url": "https://www.mapillary.com/app/?pKey=475742646988589",
+    "lat": 6.931442,
+    "lon": 79.854637,
+    "heading": 299,
+    "captured": "2020-01-15",
+    "distance": 61
+   }
+  ],
+  "source": "OSM way 520706574 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_434316880",
+  "name": "",
+  "latitude": 6.906031,
+  "longitude": 79.867819,
+  "osm": [
+   434316880
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 434316880 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_360952641",
+  "name": "",
+  "latitude": 6.91089,
+  "longitude": 79.849254,
+  "osm": [
+   360952641
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 360952641 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1122205059",
+  "name": "",
+  "latitude": 6.878026,
+  "longitude": 79.874988,
+  "osm": [
+   1122205059
+  ],
+  "buildingType": "office",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [],
+  "source": "OSM way 1122205059 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_306673484",
+  "name": "YMBA Colombo Fort",
+  "latitude": 6.936151,
+  "longitude": 79.846622,
+  "osm": [
+   306673484
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/306673484/2442601079542442.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=2442601079542442",
+    "lat": 6.936554,
+    "lon": 79.84666,
+    "heading": 197,
+    "captured": "2026-07-19",
+    "distance": 45
+   },
+   {
+    "path": "buildings/refs/306673484/839631372421325.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=839631372421325",
+    "lat": 6.936675,
+    "lon": 79.847021,
+    "heading": 236,
+    "captured": "2026-07-19",
+    "distance": 73
+   }
+  ],
+  "source": "OSM way 306673484 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1228627429",
+  "name": "Amari Colombo Hotel",
+  "latitude": 6.911334,
+  "longitude": 79.849344,
+  "osm": [
+   1228627429
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 27,
+  "height": 89.9,
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/1228627429/874507793109075.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "suranga_nandasena",
+    "url": "https://www.mapillary.com/app/?pKey=874507793109075",
+    "lat": 6.910734,
+    "lon": 79.848341,
+    "heading": 60,
+    "captured": "2018-10-23",
+    "distance": 129
+   },
+   {
+    "path": "buildings/refs/1228627429/3626241267544383.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "ocramzir",
+    "url": "https://www.mapillary.com/app/?pKey=3626241267544383",
+    "lat": 6.912526,
+    "lon": 79.849369,
+    "heading": 180,
+    "captured": "2026-07-18",
+    "distance": 133
+   },
+   {
+    "path": "buildings/refs/1228627429/2504185333337397.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "ocramzir",
+    "url": "https://www.mapillary.com/app/?pKey=2504185333337397",
+    "lat": 6.912571,
+    "lon": 79.849502,
+    "heading": 186,
+    "captured": "2026-07-18",
+    "distance": 139
+   }
+  ],
+  "source": "OSM way 1228627429 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_228985630",
+  "name": "",
+  "latitude": 6.937206,
+  "longitude": 79.854179,
+  "osm": [
+   228985630
+  ],
+  "buildingType": "commercial",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/228985630/1038740851984924.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1038740851984924",
+    "lat": 6.937367,
+    "lon": 79.854115,
+    "heading": 163,
+    "captured": "2026-07-20",
+    "distance": 19
+   },
+   {
+    "path": "buildings/refs/228985630/990189077348756.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=990189077348756",
+    "lat": 6.937362,
+    "lon": 79.854234,
+    "heading": 210,
+    "captured": "2026-07-20",
+    "distance": 18
+   },
+   {
+    "path": "buildings/refs/228985630/1014763071555543.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "jlvmateo",
+    "url": "https://www.mapillary.com/app/?pKey=1014763071555543",
+    "lat": 6.93779,
+    "lon": 79.854242,
+    "heading": 185,
+    "captured": "2026-07-20",
+    "distance": 65
+   }
+  ],
+  "source": "OSM way 228985630 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_536917555",
+  "name": "",
+  "latitude": 6.894503,
+  "longitude": 79.879507,
+  "osm": [
+   536917555
+  ],
+  "buildingType": "civic",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 13,
+  "height": 43.7,
+  "model": "",
+  "references": [],
+  "source": "OSM way 536917555 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1472122128",
+  "name": "Intercontinental Hotel Colombo",
+  "latitude": 6.89574,
+  "longitude": 79.855137,
+  "osm": [
+   1472122128
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 37,
+  "height": 180,
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/1472122128/988665932277159.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=988665932277159",
+    "lat": 6.896153,
+    "lon": 79.857417,
+    "heading": 240,
+    "captured": "2023-07-20",
+    "distance": 256
+   },
+   {
+    "path": "buildings/refs/1472122128/3731177573786118.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "maheshika",
+    "url": "https://www.mapillary.com/app/?pKey=3731177573786118",
+    "lat": 6.895669,
+    "lon": 79.852447,
+    "heading": 116,
+    "captured": "2024-05-09",
+    "distance": 297
+   }
+  ],
+  "source": "OSM way 1472122128 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_1036461655",
+  "name": "EH Cooray",
+  "latitude": 6.902338,
+  "longitude": 79.852829,
+  "osm": [
+   1036461655
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/1036461655/939836770182246.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "mbethke",
+    "url": "https://www.mapillary.com/app/?pKey=939836770182246",
+    "lat": 6.90204,
+    "lon": 79.852984,
+    "heading": 350,
+    "captured": "2020-04-01",
+    "distance": 37
+   },
+   {
+    "path": "buildings/refs/1036461655/284113800126491.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "mbethke",
+    "url": "https://www.mapillary.com/app/?pKey=284113800126491",
+    "lat": 6.902207,
+    "lon": 79.852938,
+    "heading": 348,
+    "captured": "2020-04-01",
+    "distance": 19
+   }
+  ],
+  "source": "OSM way 1036461655 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_529639570",
+  "name": "",
+  "latitude": 6.920804,
+  "longitude": 79.847029,
+  "osm": [
+   529639570
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 5,
+  "height": 25,
+  "model": "",
+  "references": [
+   {
+    "path": "buildings/refs/529639570/4307673389295484.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "carlmiraflor",
+    "url": "https://www.mapillary.com/app/?pKey=4307673389295484",
+    "lat": 6.921182,
+    "lon": 79.846539,
+    "heading": 129,
+    "captured": "2016-10-21",
+    "distance": 69
+   },
+   {
+    "path": "buildings/refs/529639570/179249687383134.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "carlmiraflor",
+    "url": "https://www.mapillary.com/app/?pKey=179249687383134",
+    "lat": 6.920528,
+    "lon": 79.846768,
+    "heading": 58,
+    "captured": "2016-10-21",
+    "distance": 42
+   },
+   {
+    "path": "buildings/refs/529639570/787689441875231.jpg",
+    "license": "CC BY-SA 4.0 (Mapillary)",
+    "author": "carlmiraflor",
+    "url": "https://www.mapillary.com/app/?pKey=787689441875231",
+    "lat": 6.921107,
+    "lon": 79.846615,
+    "heading": 141,
+    "captured": "2016-10-21",
+    "distance": 57
+   }
+  ],
+  "source": "OSM way 529639570 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ },
+ {
+  "id": "colombo_osm_401634492",
+  "name": "Global Towers Hotel & Apartment",
+  "latitude": 6.877575,
+  "longitude": 79.857223,
+  "osm": [
+   401634492
+  ],
+  "buildingType": "apartments",
+  "architecturalStyle": "",
+  "primaryColor": "",
+  "secondaryColors": [],
+  "roofType": "",
+  "floors": 12,
+  "height": 40.4,
+  "model": "",
+  "references": [],
+  "source": "OSM way 401634492 footprint; Mapillary street-level references",
+  "confidence": "unverified"
+ }
+]

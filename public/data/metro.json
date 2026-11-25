@@ -1,0 +1,1217 @@
+{
+ "source": "slrailwayforum.com/lanka-metro-bus-routes (Nov 2026), srilankatrip.com.lk; stop positions geocoded + snapped to OSM bus stops, approximate",
+ "routes": [
+  {
+   "code": "CM01",
+   "colour": "#1f6fd1",
+   "name": "Makumbura \u2013 Pettah",
+   "fare": [
+    65,
+    300
+   ],
+   "stops": [
+    {
+     "name": "Makumbura",
+     "lat": 6.839359,
+     "lon": 79.972853,
+     "inMap": false,
+     "source": "geocoded (Makumbura)"
+    },
+    {
+     "name": "Kottawa",
+     "lat": 6.843014,
+     "lon": 79.965531,
+     "inMap": false,
+     "source": "geocoded (Kottawa)"
+    },
+    {
+     "name": "Dharmapala College, Pannipitiya",
+     "lat": 6.865524,
+     "lon": 79.958487,
+     "inMap": false,
+     "source": "geocoded (Dharmapala Vidyalaya Kottawa North, Pannipitiya-Malabe Road, Pannipitiya)"
+    },
+    {
+     "name": "Pannipitiya",
+     "lat": 6.84644,
+     "lon": 79.948625,
+     "inMap": false,
+     "source": "geocoded (Pannipitiya)"
+    },
+    {
+     "name": "Araliya Uyana",
+     "lat": 6.852856,
+     "lon": 79.882433,
+     "inMap": true,
+     "source": "geocoded (Araliya Uyana, Bellanthara)"
+    },
+    {
+     "name": "Polwatta",
+     "lat": 6.859195,
+     "lon": 79.940902,
+     "inMap": false,
+     "source": "geocoded (Polwatta)"
+    },
+    {
+     "name": "Kalalgoda Junction",
+     "lat": 6.868325,
+     "lon": 79.9418,
+     "inMap": false,
+     "source": "geocoded (Kalalgoda)"
+    },
+    {
+     "name": "Thalawathugada",
+     "lat": null,
+     "lon": null,
+     "inMap": false,
+     "source": "not found"
+    },
+    {
+     "name": "Wikramasinghepura",
+     "lat": 6.882722,
+     "lon": 79.940433,
+     "inMap": false,
+     "source": "geocoded (11th Lane Wickramasinghepura Road, Thalangama South)"
+    },
+    {
+     "name": "Isurupaya",
+     "lat": 6.8907,
+     "lon": 79.930379,
+     "inMap": false,
+     "source": "geocoded (Isurupaya, Pagoda Gardens, Thalangama)"
+    },
+    {
+     "name": "Palam Thuna Junction",
+     "lat": 6.895034,
+     "lon": 79.924339,
+     "inMap": false,
+     "source": "geocoded (Palam Thune Jct., Denzil Kobbekaduwa Mawatha, Koswatte)"
+    },
+    {
+     "name": "Battaramulla",
+     "lat": 6.902181,
+     "lon": 79.919578,
+     "inMap": false,
+     "source": "geocoded (Battaramulla)"
+    },
+    {
+     "name": "Sethsiripaya",
+     "lat": 6.903434,
+     "lon": 79.915272,
+     "inMap": false,
+     "source": "geocoded (Sethsiripaya, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "Diyatha Uyana",
+     "lat": 6.90449,
+     "lon": 79.913587,
+     "inMap": false,
+     "source": "geocoded (Diyatha Uyana Car Park, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "NAITA Rajagiriya",
+     "lat": 6.907429,
+     "lon": 79.899874,
+     "inMap": false,
+     "source": "geocoded (National Apprentice and Industrial Training Authority (NAITA), Sri Jayewardenepura Mawatha, Rajagiriya)"
+    },
+    {
+     "name": "Rajagiriya",
+     "lat": 6.909504,
+     "lon": 79.896218,
+     "inMap": false,
+     "source": "geocoded (Rajagiriya, Kolonnawa)"
+    },
+    {
+     "name": "Ayurvedha Junction, Rajagiriya",
+     "lat": 6.911613,
+     "lon": 79.888379,
+     "inMap": false,
+     "source": "geocoded (Rajagiriya Ayurvedic Hospital, Kotta Road, Narahenpita)"
+    },
+    {
+     "name": "Castle Street Hospital",
+     "lat": 6.910887,
+     "lon": 79.884626,
+     "inMap": true,
+     "source": "OSM bus stop 117 m from geocode (Castle Street Hospital for Women, Dudley Senanayake Mawatha (Castle Street), Narahenpita)"
+    },
+    {
+     "name": "Singer Mega, Borella",
+     "lat": 6.911182,
+     "lon": 79.876976,
+     "inMap": true,
+     "source": "OSM bus stop 58 m from geocode (Singer Mega, Dudley Senanayake Mawatha, Borella)"
+    },
+    {
+     "name": "Wijerama, Colombo 7",
+     "lat": 6.906262,
+     "lon": 79.874154,
+     "inMap": true,
+     "source": "OSM bus stop 214 m from geocode (Wijerama Mawatha (McCarthy Road), Cinnamon Gardens)"
+    },
+    {
+     "name": "Town Hall, Colombo",
+     "lat": 6.916472,
+     "lon": 79.863065,
+     "inMap": true,
+     "source": "OSM bus stop 106 m from geocode (Town Hall, Colombo, Vidya Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Hedges Court",
+     "lat": 6.921906,
+     "lon": 79.86562,
+     "inMap": true,
+     "source": "geocoded (Hedges Court, Suduwella)"
+    },
+    {
+     "name": "Maradana",
+     "lat": 6.929132,
+     "lon": 79.864394,
+     "inMap": true,
+     "source": "OSM bus stop 94 m from geocode (Maradana, P. de S. Kularatne Mawatha, Maligakanda)"
+    },
+    {
+     "name": "Colombo Fort",
+     "lat": 6.934033,
+     "lon": 79.850297,
+     "inMap": true,
+     "source": "OSM bus stop 42 m from geocode (Colombo Fort, Olcott Mawatha, Fort)"
+    },
+    {
+     "name": "Pettah",
+     "lat": 6.933403,
+     "lon": 79.855803,
+     "inMap": true,
+     "source": "OSM bus stop 122 m from geocode (Pettah Floating Market, Olcott Mawatha, Kehelwatte)"
+    }
+   ]
+  },
+  {
+   "code": "CM02",
+   "colour": "#f2c230",
+   "name": "Millennium City \u2013 Pettah",
+   "fare": [
+    65,
+    285
+   ],
+   "stops": [
+    {
+     "name": "Millennium City Athurugiriya",
+     "lat": 6.882865,
+     "lon": 79.999458,
+     "inMap": false,
+     "source": "geocoded (Millennium City Housing Scheme, Millenium City)"
+    },
+    {
+     "name": "Athurugiriya Hospital",
+     "lat": 6.878815,
+     "lon": 79.990739,
+     "inMap": false,
+     "source": "geocoded (City Pet Animal Hospital, Kaduwela Road, Millenium City)"
+    },
+    {
+     "name": "Athurugiriya",
+     "lat": 6.877975,
+     "lon": 79.99002,
+     "inMap": false,
+     "source": "geocoded (Athurugiriya)"
+    },
+    {
+     "name": "Nisaco Mall",
+     "lat": 6.880733,
+     "lon": 79.983857,
+     "inMap": false,
+     "source": "geocoded (NISACO MALL, Malabe - Athurugiriya Road, Athurugiriya)"
+    },
+    {
+     "name": "Hokandara Junction",
+     "lat": 6.890559,
+     "lon": 79.964809,
+     "inMap": false,
+     "source": "geocoded (Arangala junction Bus stop,Arangala, Malabe - Athurugiriya Road, Arangala)"
+    },
+    {
+     "name": "Arangala Junction",
+     "lat": 6.891037,
+     "lon": 79.964292,
+     "inMap": false,
+     "source": "geocoded (Arangala junction Bus stop,Malabe, Malabe - Athurugiriya Road, Arangala)"
+    },
+    {
+     "name": "Malabe Bus Stand",
+     "lat": 6.877347,
+     "lon": 79.989384,
+     "inMap": false,
+     "source": "geocoded (Athurugiriya Bus Stand, Malabe - Athurugiriya Road, Athurugiriya)"
+    },
+    {
+     "name": "Thalahena Junction",
+     "lat": 6.914493,
+     "lon": 79.950761,
+     "inMap": false,
+     "source": "geocoded (Thalahena)"
+    },
+    {
+     "name": "Thalangama Junction",
+     "lat": 6.88027,
+     "lon": 79.93437,
+     "inMap": false,
+     "source": "geocoded (Wickramasinghepura Junction, Pannipitiya Road, Thalangama South)"
+    },
+    {
+     "name": "Maga Neguma",
+     "lat": 6.91045,
+     "lon": 79.877579,
+     "inMap": true,
+     "source": "OSM bus stop 104 m from geocode (Divi Neguma Department, Borella)"
+    },
+    {
+     "name": "Sethsiripaya",
+     "lat": 6.903434,
+     "lon": 79.915272,
+     "inMap": false,
+     "source": "geocoded (Sethsiripaya, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "Diyatha Uyana",
+     "lat": 6.90449,
+     "lon": 79.913587,
+     "inMap": false,
+     "source": "geocoded (Diyatha Uyana Car Park, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "NAITA Rajagiriya",
+     "lat": 6.907429,
+     "lon": 79.899874,
+     "inMap": false,
+     "source": "geocoded (National Apprentice and Industrial Training Authority (NAITA), Sri Jayewardenepura Mawatha, Rajagiriya)"
+    },
+    {
+     "name": "Rajagiriya",
+     "lat": 6.909504,
+     "lon": 79.896218,
+     "inMap": false,
+     "source": "geocoded (Rajagiriya, Kolonnawa)"
+    },
+    {
+     "name": "Castle Street Hospital",
+     "lat": 6.910887,
+     "lon": 79.884626,
+     "inMap": true,
+     "source": "OSM bus stop 117 m from geocode (Castle Street Hospital for Women, Dudley Senanayake Mawatha (Castle Street), Narahenpita)"
+    },
+    {
+     "name": "YMBA Borella",
+     "lat": 6.913384,
+     "lon": 79.87745,
+     "inMap": true,
+     "source": "OSM bus stop 26 m from geocode (YMBA, Rt. Hon. D. S. Senanayake Mawatha, Borella)"
+    },
+    {
+     "name": "Town Hall, Colombo",
+     "lat": 6.916472,
+     "lon": 79.863065,
+     "inMap": true,
+     "source": "OSM bus stop 106 m from geocode (Town Hall, Colombo, Vidya Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Union Place",
+     "lat": 6.921338,
+     "lon": 79.855906,
+     "inMap": true,
+     "source": "OSM bus stop 87 m from geocode (Hilton Colombo Residences, Union Place, Hunupitiya)"
+    },
+    {
+     "name": "Nawaloka Hospital",
+     "lat": 6.921377,
+     "lon": 79.852939,
+     "inMap": true,
+     "source": "OSM bus stop 103 m from geocode (Nawaloka Hospital, Sir James Peiris Mawatha, Weekanda)"
+    },
+    {
+     "name": "Regal Cinema, Colombo",
+     "lat": 6.931354,
+     "lon": 79.846949,
+     "inMap": true,
+     "source": "OSM bus stop 33 m from geocode (Regal Cinema, Regal Terrace, Fort)"
+    },
+    {
+     "name": "Colombo Fort",
+     "lat": 6.934033,
+     "lon": 79.850297,
+     "inMap": true,
+     "source": "OSM bus stop 42 m from geocode (Colombo Fort, Olcott Mawatha, Fort)"
+    },
+    {
+     "name": "Pettah",
+     "lat": 6.933403,
+     "lon": 79.855803,
+     "inMap": true,
+     "source": "OSM bus stop 122 m from geocode (Pettah Floating Market, Olcott Mawatha, Kehelwatte)"
+    }
+   ]
+  },
+  {
+   "code": "CM03",
+   "colour": "#4b3fa8",
+   "name": "Makumbura \u2013 Kadawatha",
+   "fare": [
+    65,
+    375
+   ],
+   "stops": [
+    {
+     "name": "Makumbura",
+     "lat": 6.839359,
+     "lon": 79.972853,
+     "inMap": false,
+     "source": "geocoded (Makumbura)"
+    },
+    {
+     "name": "Kottawa",
+     "lat": 6.843014,
+     "lon": 79.965531,
+     "inMap": false,
+     "source": "geocoded (Kottawa)"
+    },
+    {
+     "name": "Dharmapala College, Pannipitiya",
+     "lat": 6.865524,
+     "lon": 79.958487,
+     "inMap": false,
+     "source": "geocoded (Dharmapala Vidyalaya Kottawa North, Pannipitiya-Malabe Road, Pannipitiya)"
+    },
+    {
+     "name": "Pannipitiya",
+     "lat": 6.84644,
+     "lon": 79.948625,
+     "inMap": false,
+     "source": "geocoded (Pannipitiya)"
+    },
+    {
+     "name": "Maharagama",
+     "lat": 6.847278,
+     "lon": 79.926608,
+     "inMap": false,
+     "source": "geocoded (Maharagama)"
+    },
+    {
+     "name": "Apeksha Hospital",
+     "lat": 6.837319,
+     "lon": 79.920286,
+     "inMap": false,
+     "source": "geocoded (Apeksha Cancer Hospital Maharagama, Daham Mawatha, Wattegedara Junction)"
+    },
+    {
+     "name": "Navinna Junction",
+     "lat": 6.853198,
+     "lon": 79.919266,
+     "inMap": false,
+     "source": "geocoded (ORELIT HQ - Navinna, Old Road, Navinna, Maharagama, Wattegedara Junction)"
+    },
+    {
+     "name": "Wijerama Junction Nugegoda",
+     "lat": 6.844561,
+     "lon": 79.925873,
+     "inMap": false,
+     "source": "geocoded (Maharagama-Nugegoda, Dehiwela Road (Dehiwela-Maharagama Road), Wattegedara Junction)"
+    },
+    {
+     "name": "Delkanda Junction",
+     "lat": 6.865227,
+     "lon": 79.896595,
+     "inMap": false,
+     "source": "geocoded (Gamsabha Junction, Mirihana)"
+    },
+    {
+     "name": "Nugegoda",
+     "lat": 6.869969,
+     "lon": 79.888284,
+     "inMap": false,
+     "source": "geocoded (Nugegoda)"
+    },
+    {
+     "name": "Kirulapone",
+     "lat": 6.882514,
+     "lon": 79.876068,
+     "inMap": true,
+     "source": "OSM bus stop 211 m from geocode (Kirulapone Avenue, Kirulapona)"
+    },
+    {
+     "name": "Narahenpita Junction",
+     "lat": 6.887617,
+     "lon": 79.885697,
+     "inMap": false,
+     "source": "geocoded (Narahenpita Road, Nawala)"
+    },
+    {
+     "name": "Army Hospital Narahenpita",
+     "lat": 6.900987,
+     "lon": 79.877344,
+     "inMap": true,
+     "source": "OSM bus stop 195 m from geocode (Army Hospital, Elvitigala Mawatha, Narahenpita)"
+    },
+    {
+     "name": "YMBA Borella",
+     "lat": 6.913384,
+     "lon": 79.87745,
+     "inMap": true,
+     "source": "OSM bus stop 26 m from geocode (YMBA, Rt. Hon. D. S. Senanayake Mawatha, Borella)"
+    },
+    {
+     "name": "Campbell Park",
+     "lat": 6.919478,
+     "lon": 79.877802,
+     "inMap": true,
+     "source": "OSM bus stop 95 m from geocode (Campbell Park, Park Avenue, Borella)"
+    },
+    {
+     "name": "Dematagoda",
+     "lat": 6.932747,
+     "lon": 79.880371,
+     "inMap": true,
+     "source": "geocoded (Dematagoda, Colombo)"
+    },
+    {
+     "name": "Orion City Orugodawatta",
+     "lat": 6.942335,
+     "lon": 79.878418,
+     "inMap": true,
+     "source": "OSM bus stop 227 m from geocode (Orion City Entrance, Dematagoda)"
+    },
+    {
+     "name": "Thorana Junction",
+     "lat": 6.785593,
+     "lon": 79.943696,
+     "inMap": false,
+     "source": "geocoded (Thoranawila Junction, Kesbewa - Kindelpitiya - Bandaragama Road, Batuwandara)"
+    },
+    {
+     "name": "Kelaniya University",
+     "lat": 6.974219,
+     "lon": 79.915388,
+     "inMap": false,
+     "source": "geocoded (University of Kelaniya, Colombo - Kandy Road, Dalugama)"
+    },
+    {
+     "name": "Kiribathgoda",
+     "lat": 6.969079,
+     "lon": 79.911911,
+     "inMap": false,
+     "source": "geocoded (Colombo-Kandy Road, Wewelduwa)"
+    },
+    {
+     "name": "Mahara Junction",
+     "lat": 6.851124,
+     "lon": 79.921305,
+     "inMap": false,
+     "source": "geocoded (Wattegedara Junction, Maharagama)"
+    },
+    {
+     "name": "Kadawatha",
+     "lat": 6.994709,
+     "lon": 79.945638,
+     "inMap": false,
+     "source": "geocoded (Colombo-Kandy Road, Bangala Watta)"
+    }
+   ]
+  },
+  {
+   "code": "CM04",
+   "colour": "#f07820",
+   "name": "Panadura \u2013 Dematagoda",
+   "fare": [
+    65,
+    300
+   ],
+   "stops": [
+    {
+     "name": "Panadura",
+     "lat": 6.685205,
+     "lon": 80.395967,
+     "inMap": false,
+     "source": "geocoded (Colombo Stock Exchange, Panadura Road, Ambagahayata)"
+    },
+    {
+     "name": "Panadura Base Hospital",
+     "lat": 6.804199,
+     "lon": 79.922739,
+     "inMap": false,
+     "source": "geocoded (Base Hospital, Wata Mawatha, Wewala)"
+    },
+    {
+     "name": "Mahanama Junction",
+     "lat": 6.851745,
+     "lon": 79.919864,
+     "inMap": false,
+     "source": "geocoded (Mahanama Paint Centre, High Level Road, Nawinna)"
+    },
+    {
+     "name": "Egoda Uyana",
+     "lat": 6.7429,
+     "lon": 79.891581,
+     "inMap": false,
+     "source": "geocoded (Egoda Uyana, Galle Road New Deviation, Moratuwa)"
+    },
+    {
+     "name": "Moratuwa",
+     "lat": 6.774682,
+     "lon": 79.88261,
+     "inMap": false,
+     "source": "geocoded (Moratuwa)"
+    },
+    {
+     "name": "Rawathawatta",
+     "lat": 6.790392,
+     "lon": 79.889638,
+     "inMap": false,
+     "source": "geocoded (Rawathawatta Road, Kuduwamulla)"
+    },
+    {
+     "name": "Katubedda Junction",
+     "lat": 6.797445,
+     "lon": 79.88884,
+     "inMap": false,
+     "source": "geocoded (Katubedda-Kospelena Road, Kuduwamulla)"
+    },
+    {
+     "name": "Angulana",
+     "lat": 6.799414,
+     "lon": 79.873194,
+     "inMap": false,
+     "source": "geocoded (Angulana)"
+    },
+    {
+     "name": "Borupana Junction",
+     "lat": 6.82143,
+     "lon": 79.902163,
+     "inMap": false,
+     "source": "geocoded (Borupana, Maharagama)"
+    },
+    {
+     "name": "Maliban Junction",
+     "lat": 6.81945,
+     "lon": 79.87362,
+     "inMap": false,
+     "source": "geocoded (Maliban Junction, Galle Road, Soysapura)"
+    },
+    {
+     "name": "Mount Lavinia",
+     "lat": 6.831725,
+     "lon": 79.86284,
+     "inMap": false,
+     "source": "geocoded (Mount Lavinia, Station Road, Ratmalana)"
+    },
+    {
+     "name": "Mount Lavinia Court",
+     "lat": 6.837562,
+     "lon": 79.867428,
+     "inMap": true,
+     "source": "OSM bus stop 0 m from geocode (Mount Lavinia Magistrate-court, Galle Road, Ratmalana)"
+    },
+    {
+     "name": "Dehiwala",
+     "lat": 6.851265,
+     "lon": 79.866411,
+     "inMap": true,
+     "source": "OSM bus stop 48 m from geocode (Dehiwala)"
+    },
+    {
+     "name": "William Junction",
+     "lat": 6.863974,
+     "lon": 79.863575,
+     "inMap": true,
+     "source": "OSM bus stop 0 m from geocode (William Junction, Galle Road, Pamankada)"
+    },
+    {
+     "name": "Wellawatte",
+     "lat": 6.874664,
+     "lon": 79.861575,
+     "inMap": true,
+     "source": "OSM bus stop 76 m from geocode (Post Office Wellawatte, Lilly Avenue, Wellawatte)"
+    },
+    {
+     "name": "Bambalapitiya",
+     "lat": 6.902799,
+     "lon": 79.852514,
+     "inMap": true,
+     "source": "OSM bus stop 241 m from geocode (Bambalapitiya, Colombo)"
+    },
+    {
+     "name": "Thummulla Junction",
+     "lat": 6.896319,
+     "lon": 79.857495,
+     "inMap": true,
+     "source": "OSM bus stop 191 m from geocode (Thummulla Roundabout Bus Stop, Trelawney Place, Milagiriya)"
+    },
+    {
+     "name": "Independence Arcade",
+     "lat": 6.901832,
+     "lon": 79.869382,
+     "inMap": true,
+     "source": "OSM bus stop 144 m from geocode (Arcade Independence Square Park, Independence Avenue, Cinnamon Gardens)"
+    },
+    {
+     "name": "D. S. Senanayake College",
+     "lat": 6.907934,
+     "lon": 79.876037,
+     "inMap": true,
+     "source": "OSM bus stop 131 m from geocode (D. S. Senanayake College, R.G. Senanayake Mawatha (Gregory's Road), Cinnamon Gardens)"
+    },
+    {
+     "name": "YMBA Borella",
+     "lat": 6.913384,
+     "lon": 79.87745,
+     "inMap": true,
+     "source": "OSM bus stop 26 m from geocode (YMBA, Rt. Hon. D. S. Senanayake Mawatha, Borella)"
+    },
+    {
+     "name": "Campbell Park",
+     "lat": 6.919478,
+     "lon": 79.877802,
+     "inMap": true,
+     "source": "OSM bus stop 95 m from geocode (Campbell Park, Park Avenue, Borella)"
+    },
+    {
+     "name": "Dematagoda",
+     "lat": 6.932747,
+     "lon": 79.880371,
+     "inMap": true,
+     "source": "geocoded (Dematagoda, Colombo)"
+    },
+    {
+     "name": "Dematagoda Railway Station",
+     "lat": 6.929132,
+     "lon": 79.864394,
+     "inMap": false,
+     "source": "OSM bus stop 155 m from geocode (Maradana Railway Station, Jayantha Weerasekara Mawatha, Maligawatta) -- matched Maradana station instead; excluded until verified"
+    }
+   ]
+  },
+  {
+   "code": "CM05",
+   "colour": "#8a2fa8",
+   "name": "Ekala \u2013 Thalangama Depot",
+   "fare": [
+    65,
+    300
+   ],
+   "stops": [
+    {
+     "name": "Ekala",
+     "lat": 6.869571,
+     "lon": 79.890576,
+     "inMap": false,
+     "source": "geocoded (Ekanayake Mawatha, Mirihana)"
+    },
+    {
+     "name": "CTB Junction Ja-Ela",
+     "lat": null,
+     "lon": null,
+     "inMap": false,
+     "source": "not found"
+    },
+    {
+     "name": "Ja-Ela",
+     "lat": 7.063305,
+     "lon": 79.879012,
+     "inMap": false,
+     "source": "geocoded (Colombo - Katunayake Expressway, Ja Ela Interchange)"
+    },
+    {
+     "name": "Weligampitiya",
+     "lat": 6.93689,
+     "lon": 79.896573,
+     "inMap": false,
+     "source": "geocoded (Wellampitiya, Avissawella Road (Colombo-Hanwella Low Level Road))"
+    },
+    {
+     "name": "Kandana",
+     "lat": 7.050232,
+     "lon": 79.881018,
+     "inMap": false,
+     "source": "geocoded (Colombo - Katunayake Expressway, Kandana)"
+    },
+    {
+     "name": "Nagoda Kandana",
+     "lat": 7.035374,
+     "lon": 79.898468,
+     "inMap": false,
+     "source": "geocoded (Nagoda Church Road, Mahabage)"
+    },
+    {
+     "name": "Welisara Chest Hospital",
+     "lat": 7.02425,
+     "lon": 79.90294,
+     "inMap": false,
+     "source": "geocoded (Chest Hospital Welisara, Hospital Road, Mahabage)"
+    },
+    {
+     "name": "Mahabage",
+     "lat": 6.850431,
+     "lon": 79.871997,
+     "inMap": true,
+     "source": "OSM bus stop 116 m from geocode (Salon Anoma colombo 4, Hill Street (Dehiwela-Maharagama Road), Pallidora)"
+    },
+    {
+     "name": "Wattala Court",
+     "lat": 6.976742,
+     "lon": 79.897152,
+     "inMap": false,
+     "source": "geocoded (Colombo - Katunayake Expressway, Wanawasala)"
+    },
+    {
+     "name": "Mabola",
+     "lat": 7.001476,
+     "lon": 79.904098,
+     "inMap": false,
+     "source": "geocoded (Colombo - Katunayake Expressway, Mabole)"
+    },
+    {
+     "name": "Wattala",
+     "lat": 6.976742,
+     "lon": 79.897152,
+     "inMap": false,
+     "source": "geocoded (Colombo - Katunayake Expressway, Wanawasala)"
+    },
+    {
+     "name": "Hendala",
+     "lat": null,
+     "lon": null,
+     "inMap": false,
+     "source": "not found"
+    },
+    {
+     "name": "Hekitta Junction",
+     "lat": 6.911182,
+     "lon": 79.876976,
+     "inMap": true,
+     "source": "OSM bus stop 59 m from geocode (Senanayake Junction Borella, Borella)"
+    },
+    {
+     "name": "STC Peliyagoda",
+     "lat": 6.959,
+     "lon": 79.885985,
+     "inMap": false,
+     "source": "geocoded (Peliyagoda - Kandy Road Exit, Colombo-Katunayake Expressway, Peliyagoda Watta)"
+    },
+    {
+     "name": "Peliyagoda",
+     "lat": 6.959,
+     "lon": 79.885985,
+     "inMap": false,
+     "source": "geocoded (Peliyagoda - Kandy Road Exit, Colombo-Katunayake Expressway, Peliyagoda Watta)"
+    },
+    {
+     "name": "New Kelani Bridge",
+     "lat": 6.950937,
+     "lon": 79.874338,
+     "inMap": true,
+     "source": "geocoded (New Kelani Bridge Road, Grandpass)"
+    },
+    {
+     "name": "Orion City Orugodawatta",
+     "lat": 6.942335,
+     "lon": 79.878418,
+     "inMap": true,
+     "source": "OSM bus stop 227 m from geocode (Orion City Entrance, Dematagoda)"
+    },
+    {
+     "name": "Dematagoda",
+     "lat": 6.932747,
+     "lon": 79.880371,
+     "inMap": true,
+     "source": "geocoded (Dematagoda, Colombo)"
+    },
+    {
+     "name": "Campbell Park",
+     "lat": 6.919478,
+     "lon": 79.877802,
+     "inMap": true,
+     "source": "OSM bus stop 95 m from geocode (Campbell Park, Park Avenue, Borella)"
+    },
+    {
+     "name": "YMBA Borella",
+     "lat": 6.913384,
+     "lon": 79.87745,
+     "inMap": true,
+     "source": "OSM bus stop 26 m from geocode (YMBA, Rt. Hon. D. S. Senanayake Mawatha, Borella)"
+    },
+    {
+     "name": "Castle Street Hospital",
+     "lat": 6.910887,
+     "lon": 79.884626,
+     "inMap": true,
+     "source": "OSM bus stop 117 m from geocode (Castle Street Hospital for Women, Dudley Senanayake Mawatha (Castle Street), Narahenpita)"
+    },
+    {
+     "name": "Ayurvedha Junction, Rajagiriya",
+     "lat": 6.911613,
+     "lon": 79.888379,
+     "inMap": false,
+     "source": "geocoded (Rajagiriya Ayurvedic Hospital, Kotta Road, Narahenpita)"
+    },
+    {
+     "name": "Rajagiriya",
+     "lat": 6.909504,
+     "lon": 79.896218,
+     "inMap": false,
+     "source": "geocoded (Rajagiriya, Kolonnawa)"
+    },
+    {
+     "name": "NAITA Rajagiriya",
+     "lat": 6.907429,
+     "lon": 79.899874,
+     "inMap": false,
+     "source": "geocoded (National Apprentice and Industrial Training Authority (NAITA), Sri Jayewardenepura Mawatha, Rajagiriya)"
+    },
+    {
+     "name": "Diyatha Uyana",
+     "lat": 6.90449,
+     "lon": 79.913587,
+     "inMap": false,
+     "source": "geocoded (Diyatha Uyana Car Park, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "Sethsiripaya",
+     "lat": 6.903434,
+     "lon": 79.915272,
+     "inMap": false,
+     "source": "geocoded (Sethsiripaya, Polduwa Road, Battaramulla North)"
+    },
+    {
+     "name": "Battaramulla",
+     "lat": 6.902181,
+     "lon": 79.919578,
+     "inMap": false,
+     "source": "geocoded (Battaramulla)"
+    },
+    {
+     "name": "Thalangama",
+     "lat": 6.906036,
+     "lon": 79.926333,
+     "inMap": false,
+     "source": "geocoded (Thalangama)"
+    },
+    {
+     "name": "Thalangama Depot",
+     "lat": 6.90678,
+     "lon": 79.926113,
+     "inMap": false,
+     "source": "geocoded (Thalangama Depot, Thalangama Bus Depot, Koswatte)"
+    }
+   ]
+  },
+  {
+   "code": "CM06",
+   "colour": "#6cc04a",
+   "name": "Kollupitiya Circular",
+   "fare": [
+    65,
+    185
+   ],
+   "loop": true,
+   "stops": [
+    {
+     "name": "Kollupitiya",
+     "lat": 6.911925,
+     "lon": 79.850547,
+     "inMap": true,
+     "source": "OSM bus stop 181 m from geocode (Kollupitiya, Colombo)"
+    },
+    {
+     "name": "Liberty Plaza",
+     "lat": 6.911925,
+     "lon": 79.850547,
+     "inMap": true,
+     "source": "OSM bus stop 72 m from geocode (Liberty Plaza, Srimath Anagarika Dharmapala Mawatha, Kollupitiya)"
+    },
+    {
+     "name": "Colombo Public Library",
+     "lat": 6.912993,
+     "lon": 79.858081,
+     "inMap": true,
+     "source": "OSM bus stop 117 m from geocode (Colombo Public Library, Sir Marcus Fernando Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Town Hall, Colombo",
+     "lat": 6.916472,
+     "lon": 79.863065,
+     "inMap": true,
+     "source": "OSM bus stop 106 m from geocode (Town Hall, Colombo, Vidya Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Nelum Pokuna",
+     "lat": 6.910253,
+     "lon": 79.863548,
+     "inMap": true,
+     "source": "OSM bus stop 69 m from geocode (Nelum Pokuna Mahinda Rajapaksa Theatre, Dr. Ananda Coomaraswamy Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Padanama Mawatha",
+     "lat": 6.906262,
+     "lon": 79.874154,
+     "inMap": true,
+     "source": "OSM bus stop 214 m from geocode (Wijerama Mawatha (McCarthy Road), Cinnamon Gardens)"
+    },
+    {
+     "name": "Independence Square",
+     "lat": 6.904181,
+     "lon": 79.867775,
+     "inMap": true,
+     "source": "geocoded (Independence Square, Cinnamon Gardens)"
+    },
+    {
+     "name": "Jawatta Road",
+     "lat": 6.891492,
+     "lon": 79.867051,
+     "inMap": true,
+     "source": "geocoded (Jawatta Road, Thimbirigasyaya)"
+    },
+    {
+     "name": "Jawatta",
+     "lat": 6.891492,
+     "lon": 79.867051,
+     "inMap": true,
+     "source": "geocoded (Jawatta Road, Thimbirigasyaya)"
+    },
+    {
+     "name": "Hirdaramani, Colombo 5",
+     "lat": 6.782454,
+     "lon": 79.995531,
+     "inMap": false,
+     "source": "geocoded (Hirdaramani Kahathuduwa, Colombo-Horana Road, Kahatuduwa)"
+    },
+    {
+     "name": "Narahenpita Railway Station",
+     "lat": 6.891853,
+     "lon": 79.876863,
+     "inMap": true,
+     "source": "OSM bus stop 50 m from geocode (Narahenpita Police Station, Elvitigala Mawatha, Kirula)"
+    },
+    {
+     "name": "Narahenpita",
+     "lat": 6.891853,
+     "lon": 79.876863,
+     "inMap": true,
+     "source": "OSM bus stop 63 m from geocode (Narahenpita, Alvitigala Mawatha, Kirula)"
+    },
+    {
+     "name": "Anderson Flats",
+     "lat": 6.889826,
+     "lon": 79.872456,
+     "inMap": true,
+     "source": "geocoded (Anderson Flats, Kirula)"
+    },
+    {
+     "name": "Havelock Town",
+     "lat": 6.887481,
+     "lon": 79.864636,
+     "inMap": true,
+     "source": "OSM bus stop 156 m from geocode (Havelock Town, Colombo)"
+    },
+    {
+     "name": "W. A. Silva Mawatha",
+     "lat": 6.876618,
+     "lon": 79.866069,
+     "inMap": true,
+     "source": "OSM bus stop 31 m from geocode (W. A. Silva Mawatha (High Street), Pamankada)"
+    },
+    {
+     "name": "Wellawatte",
+     "lat": 6.874664,
+     "lon": 79.861575,
+     "inMap": true,
+     "source": "OSM bus stop 76 m from geocode (Post Office Wellawatte, Lilly Avenue, Wellawatte)"
+    },
+    {
+     "name": "Bambalapitiya",
+     "lat": 6.902799,
+     "lon": 79.852514,
+     "inMap": true,
+     "source": "OSM bus stop 241 m from geocode (Bambalapitiya, Colombo)"
+    },
+    {
+     "name": "Sea Avenue",
+     "lat": 6.905125,
+     "lon": 79.851729,
+     "inMap": true,
+     "source": "OSM bus stop 16 m from geocode (Sea Avenue, Bambalapitiya)"
+    },
+    {
+     "name": "Kollupitiya",
+     "lat": 6.911925,
+     "lon": 79.850547,
+     "inMap": true,
+     "source": "OSM bus stop 181 m from geocode (Kollupitiya, Colombo)"
+    }
+   ]
+  },
+  {
+   "code": "CM08",
+   "colour": "#1e6a3a",
+   "name": "Kahathuduwa \u2013 Pettah",
+   "fare": [
+    65,
+    300
+   ],
+   "stops": [
+    {
+     "name": "Kahathuduwa",
+     "lat": 6.780994,
+     "lon": 79.996824,
+     "inMap": false,
+     "source": "geocoded (Kahathuduwa Rubber Factory, Kahatuduwa)"
+    },
+    {
+     "name": "Kahathuduwa Police",
+     "lat": 6.783085,
+     "lon": 79.986125,
+     "inMap": false,
+     "source": "geocoded (Kahathuduwa Police Station, Colombo-Horana Road, Kahatuduwa)"
+    },
+    {
+     "name": "Rilawala Junction",
+     "lat": 6.911182,
+     "lon": 79.876976,
+     "inMap": true,
+     "source": "OSM bus stop 59 m from geocode (Senanayake Junction Borella, Borella)"
+    },
+    {
+     "name": "Polgasowita",
+     "lat": 6.787089,
+     "lon": 79.964815,
+     "inMap": false,
+     "source": "geocoded (Polgasowita Jct., Colombo-Horana Road, Horathuduwa)"
+    },
+    {
+     "name": "14th Mile Post",
+     "lat": 6.909908,
+     "lon": 79.852231,
+     "inMap": true,
+     "source": "OSM bus stop 125 m from geocode (Mile Post Avenue, Kollupitiya)"
+    },
+    {
+     "name": "Kesbewa",
+     "lat": 6.795014,
+     "lon": 79.941097,
+     "inMap": false,
+     "source": "geocoded (Kesbewa)"
+    },
+    {
+     "name": "Piliyandala Bus Stand",
+     "lat": 6.802083,
+     "lon": 79.925065,
+     "inMap": false,
+     "source": "geocoded (Piliyandala New Bus Stand, Saranapala Mawatha, Puwakgas Junction)"
+    },
+    {
+     "name": "Lanka Fiber Fabrica",
+     "lat": 6.92867,
+     "lon": 79.883793,
+     "inMap": true,
+     "source": "geocoded (Fiber Garden, Wanathamulla)"
+    },
+    {
+     "name": "Weerasinghe Mawatha",
+     "lat": 6.820629,
+     "lon": 79.91294,
+     "inMap": false,
+     "source": "geocoded (Weerasinghe Mawatha, Borupana)"
+    },
+    {
+     "name": "Werahera",
+     "lat": 6.827051,
+     "lon": 79.905738,
+     "inMap": false,
+     "source": "geocoded (Werahera, Maharagama)"
+    },
+    {
+     "name": "Boralesgamuwa",
+     "lat": 6.84106,
+     "lon": 79.901703,
+     "inMap": false,
+     "source": "geocoded (Boralesgamuwa)"
+    },
+    {
+     "name": "Raththanapitiya",
+     "lat": 6.849069,
+     "lon": 79.895943,
+     "inMap": false,
+     "source": "geocoded (Keells Super - Raththanapitiya, Colombo-Piliyandala-Horana Road, Rattanapitiya)"
+    },
+    {
+     "name": "Pepiliyana",
+     "lat": 6.856605,
+     "lon": 79.890574,
+     "inMap": false,
+     "source": "geocoded (Pepiliyana, Bellanthara)"
+    },
+    {
+     "name": "Kohuwala",
+     "lat": 6.866989,
+     "lon": 79.884863,
+     "inMap": true,
+     "source": "geocoded (Public Market Kohuwala, Colombo-Piliyandala-Horana Road, Bellanthara)"
+    },
+    {
+     "name": "Kirulapone",
+     "lat": 6.882514,
+     "lon": 79.876068,
+     "inMap": true,
+     "source": "OSM bus stop 211 m from geocode (Kirulapone Avenue, Kirulapona)"
+    },
+    {
+     "name": "Havelock Town",
+     "lat": 6.887481,
+     "lon": 79.864636,
+     "inMap": true,
+     "source": "OSM bus stop 156 m from geocode (Havelock Town, Colombo)"
+    },
+    {
+     "name": "Thimbirigasyaya",
+     "lat": 6.897905,
+     "lon": 79.869608,
+     "inMap": true,
+     "source": "geocoded (Thimbirigasyaya, Colombo)"
+    },
+    {
+     "name": "Thummulla",
+     "lat": 6.897622,
+     "lon": 79.860656,
+     "inMap": true,
+     "source": "OSM bus stop 0 m from geocode (Thummulla Bus Stop, Bauddhaloka Mawatha, Cinnamon Gardens)"
+    },
+    {
+     "name": "Kollupitiya",
+     "lat": 6.911925,
+     "lon": 79.850547,
+     "inMap": true,
+     "source": "OSM bus stop 181 m from geocode (Kollupitiya, Colombo)"
+    },
+    {
+     "name": "One Galle Face",
+     "lat": 6.925589,
+     "lon": 79.844746,
+     "inMap": true,
+     "source": "OSM bus stop 228 m from geocode (One Galle Face, Center Road, Kompannaweediya)"
+    },
+    {
+     "name": "Colombo Fort",
+     "lat": 6.934033,
+     "lon": 79.850297,
+     "inMap": true,
+     "source": "OSM bus stop 42 m from geocode (Colombo Fort, Olcott Mawatha, Fort)"
+    },
+    {
+     "name": "Pettah",
+     "lat": 6.933403,
+     "lon": 79.855803,
+     "inMap": true,
+     "source": "OSM bus stop 122 m from geocode (Pettah Floating Market, Olcott Mawatha, Kehelwatte)"
+    }
+   ]
+  }
+ ]
+}

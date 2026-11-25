@@ -1,0 +1,42 @@
+import * as pc from 'playcanvas';
+
+/** Growable vertex/index buffers with per-vertex colour, turned into one pc.Mesh. */
+export class GeometryBuffer {
+  pos: number[] = [];
+  nrm: number[] = [];
+  col: number[] = [];
+  idx: number[] = [];
+
+  get vertexCount() { return this.pos.length / 3; }
+
+  vertex(x: number, y: number, z: number, nx: number, ny: number, nz: number, c: number) {
+    this.pos.push(x, y, z);
+    this.nrm.push(nx, ny, nz);
+    this.col.push((c >> 16) & 255, (c >> 8) & 255, c & 255, 255);
+  }
+
+  /** Quad from the last 4 vertices added (a,b,c,d in winding order). */
+  quad(a: number) { this.idx.push(a, a + 1, a + 2, a, a + 2, a + 3); }
+
+  toMesh(device: pc.GraphicsDevice): pc.Mesh | null {
+    if (!this.idx.length) return null;
+    const mesh = new pc.Mesh(device);
+    mesh.setPositions(this.pos);
+    mesh.setNormals(this.nrm);
+    mesh.setColors32(this.col);
+    mesh.setUvs(0, this.pos.filter((_, i) => i % 3 !== 1).map(v => v / 7)); // planar XZ, 7 m tiles
+    mesh.setIndices(this.vertexCount > 65535 ? new Uint32Array(this.idx) : new Uint16Array(this.idx));
+    mesh.update();
+    return mesh;
+  }
+}
+
+export function vertexColorMaterial(doubleSided = false): pc.StandardMaterial {
+  const m = new pc.StandardMaterial();
+  m.diffuse = new pc.Color(1, 1, 1);
+  m.diffuseVertexColor = true;
+  m.gloss = 0.15;
+  if (doubleSided) m.cull = pc.CULLFACE_NONE;
+  m.update();
+  return m;
+}

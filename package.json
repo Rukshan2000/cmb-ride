@@ -1,0 +1,28 @@
+{
+  "name": "cmb-rider",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "fetch-map": "node scripts/fetch-osm.ts",
+    "backend": "node backend/src/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "earcut": "^3.2.4",
+    "maplibre-gl": "^6.19.0",
+    "playcanvas": "^2.24.3"
+  },
+  "devDependencies": {
+    "@types/earcut": "^3.0.0",
+    "@types/node": "^26.6.7",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "type": "module"
+}

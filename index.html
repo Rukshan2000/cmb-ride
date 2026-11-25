@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>CMB Rider — Colombo Driving Simulator</title>
+  <link rel="stylesheet" href="/src/ui/hud.css" />
+</head>
+<body>
+  <canvas id="app"></canvas>
+  <div id="hud" hidden>
+    <div class="panel street"><span class="label">STREET</span><span id="street">—</span></div>
+    <div class="panel cam"><span class="label">CAM</span><span id="cam">CHASE</span></div>
+    <canvas id="minimap" class="panel" width="200" height="200"></canvas>
+    <div class="panel search"><input id="nav-q" placeholder="Where to?  e.g. Go to Ananda College" autocomplete="off" spellcheck="false" /><ul id="nav-results"></ul></div>
+    <div id="nav-dest" class="panel dest" hidden>
+      <span class="label">DESTINATION</span><b id="dest-name"></b><small id="dest-addr"></small><div id="dest-route"></div>
+      <div class="btns"><button id="nav-start">Start driving</button><button id="nav-cancel" class="ghost">Cancel</button></div>
+    </div>
+    <div id="nav-banner" class="panel banner" hidden>
+      <div class="turn-row"><span id="nav-arrow">↑</span><div><div id="nav-dist"></div><div id="nav-turn"></div></div></div>
+      <div id="nav-meta"></div><button class="ghost" onclick="document.getElementById('nav-cancel').click()">End navigation</button>
+    </div>
+    <div id="navmap" class="panel"></div>
+    <div id="toast" class="toast" hidden></div>
+    <div id="compare" class="panel compare" hidden></div>
+    <div id="mode-panel" class="panel mode" hidden><span class="label" id="mode-title"></span><b id="mode-job"></b><small id="mode-detail"></small><small id="mode-stats"></small></div>
+    <div class="panel dash">
+      <div class="speed"><span id="speed">0</span><small>km/h</small></div>
+      <div class="gear"><span class="label">GEAR</span><span id="gear">N</span></div>
+      <div class="rpm"><span class="label">RPM</span><div class="bar"><div id="rpm"></div></div></div>
+    </div>
+    <div class="help">W/S drive · A/D steer · Space handbrake · C camera · R reset · N time of day · P compare view · M map size · / search · Esc pause</div>
+  </div>
+  <div id="loading" class="overlay"><div class="panel">LOADING COLOMBO MAP DATA<div class="bar"><div id="load-bar"></div></div></div></div>
+  <div id="modes" class="overlay" hidden><div class="panel menu">
+    <span class="label">CMB RIDER · CHOOSE A MODE</span>
+    <button data-mode="free">Free drive<small>Explore Colombo at your own pace</small></button>
+    <button data-mode="taxi">Taxi<small>Pick up passengers who hail you and drop them at real Colombo places</small></button>
+    <div class="metro-row"><button data-mode="metro">Metro bus<small>Drive a Lanka Metro route: stop at every real stop, board passengers</small></button>
+      <select id="metro-route"></select></div>
+  </div></div>
+  <div id="pause" class="overlay" hidden><div class="panel">PAUSED<small>Press Esc to resume</small></div></div>
+  <div id="attribution">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · Reference photos © <a href="https://www.mapillary.com" target="_blank" rel="noopener">Mapillary</a> contributors, CC BY-SA · Building heights mostly estimated</div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
