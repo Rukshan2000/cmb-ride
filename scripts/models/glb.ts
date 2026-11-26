@@ -26,6 +26,11 @@ export class Model {
     this.poly(c, [P(a0, y0, d0), P(a1, y0, d0), P(a1, y0, d1), P(a0, y0, d1)]); // underside
   }
 
+  /** Optional per-colour finish: [metallic, roughness]. */
+  finish = new Map<number, [number, number]>();
+  /** Colours that glow after dark, with their strength (written into the material name for the game to read). */
+  night = new Map<number, number>();
+
   write(file: string, roughness = 0.85) {
     const prims: any[] = [], materials: any[] = [], accessors: any[] = [], views: any[] = [];
     const bins: Buffer[] = []; let off = 0;
@@ -46,7 +51,7 @@ export class Model {
       accessors.push({ bufferView: pv, componentType: 5126, count: flat.length / 3, type: 'VEC3', min, max });
       accessors.push({ bufferView: nv, componentType: 5126, count: nrm.length / 3, type: 'VEC3' });
       const srgb = (v: number) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
-      materials.push({ doubleSided: true, pbrMetallicRoughness: { baseColorFactor: [srgb((c >> 16) & 255), srgb((c >> 8) & 255), srgb(c & 255), 1], metallicFactor: 0, roughnessFactor: roughness } });
+      materials.push({ name: this.night.size ? `night:${this.night.get(c) ?? 0}` : undefined, doubleSided: true, pbrMetallicRoughness: { baseColorFactor: [srgb((c >> 16) & 255), srgb((c >> 8) & 255), srgb(c & 255), 1], metallicFactor: this.finish.get(c)?.[0] ?? 0, roughnessFactor: this.finish.get(c)?.[1] ?? roughness } });
       prims.push({ attributes: { POSITION: accessors.length - 2, NORMAL: accessors.length - 1 }, material: materials.length - 1 });
     }
     const bin = Buffer.concat(bins);

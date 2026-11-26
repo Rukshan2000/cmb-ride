@@ -395,7 +395,7 @@ export function randomLook(spec: VehicleSpec, r: () => number): Look {
 
 /** Every ModelCache's lamp material, so time of day can switch all vehicle lights at once. */
 const lampMats: pc.StandardMaterial[] = [];
-let lampsOn = false;
+export let lampsOn = false; // dark enough for headlights
 export function setVehicleLamps(on: boolean) {
   lampsOn = on;
   for (const m of lampMats) { m.emissiveIntensity = on ? 1.6 : 0; m.update(); }

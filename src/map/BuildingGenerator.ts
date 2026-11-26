@@ -1,3 +1,4 @@
+import { SIGN_COUNT, signUv } from './ShopSigns';
 import earcut from 'earcut';
 import type { BuildingData, BuildingKind } from './MapTypes';
 import { GeometryBuffer } from './MeshUtil';
@@ -10,6 +11,8 @@ import { GeometryBuffer } from './MeshUtil';
 //  lod 1 (far):  plain extrusion + roof shape, same colours
 
 export interface BuildingBuffers {
+  signs?: GeometryBuffer; // shop signboards (atlas UVs, see ShopSigns)
+  glow?: GeometryBuffer;  // far walls only: night-window overlay
   solid: GeometryBuffer;  // walls, roofs, trims
   glass: GeometryBuffer;  // windows / curtain walls (glossy material)
   tanks: number[];        // rooftop water tank positions [x,y,z,scale,...] -> hardware instanced
@@ -38,7 +41,7 @@ const SHUTTER = 0x8e9396, SHOP_DARK = 0x2a2826, DOOR = 0x5a3a24, TRIM = 0xf4f2ec
 const FLOOR = 3.3;
 
 export function newBuffers(): BuildingBuffers {
-  return { solid: new GeometryBuffer(), glass: new GeometryBuffer(), tanks: [] };
+  return { solid: new GeometryBuffer(), glass: new GeometryBuffer(), glow: new GeometryBuffer(), signs: new GeometryBuffer(), tanks: [] };
 }
 
 export function buildBuildings(buildings: BuildingData[], out: BuildingBuffers, lod: 0 | 1, skip?: Set<number>) {
@@ -98,6 +101,7 @@ function buildOne(b: BuildingData, out: BuildingBuffers, lod: 0 | 1) {
       quad(g, [at(0, 0), at(L, 0), at(L, h), at(0, h)], N, lit);
     }
     if (parapet) quad(g, [at(0, h), at(L, h), at(L, h + parapet), at(0, h + parapet)], N, shade(lit, 0.95));
+    if (lod === 1 && !curtain && out.glow && L > 3 && h > 4) quad(out.glow, [at(0, 0.8, 0.15), at(L, 0.8, 0.15), at(L, h - 0.4, 0.15), at(0, h - 0.4, 0.15)], N, 0xffffff);
     if (lod === 1 || curtain || L < 1.6) continue;
 
     // --- Near detail ---
@@ -115,6 +119,17 @@ function buildOne(b: BuildingData, out: BuildingBuffers, lod: 0 | 1) {
       }
       const sc = rnd() < 0.7 ? signCol : pick(rnd, SIGNS);
       box(g, at(L / 2, 0, 0.25), ux, uz, nx, nz, L / 2 - 0.1, 0.2, 3.0, 3.85, sc);
+      // Lettered boards, ~3.2 m each, across the signboard band.
+      if (out.signs) {
+        const count = Math.max(1, Math.round(L / 3.4)), w = (L - 0.3) / count;
+        for (let k = 0; k < count; k++) {
+          const [u0, v0, u1, v1] = signUv((b.id * 7 + i * 3 + k) % SIGN_COUNT);
+          let a = 0.15 + k * w + 0.04, z = 0.15 + (k + 1) * w - 0.04;
+          if (s > 0) [a, z] = [z, a]; // so the lettering reads left-to-right from the street
+          quad(out.signs, [at(a, 3.05, 0.47), at(z, 3.05, 0.47), at(z, 3.8, 0.47), at(a, 3.8, 0.47)], N, 0xffffff);
+          out.signs.uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+        }
+      }
       // Cantilevered rain/sun awning over the pavement.
       if (rnd() < 0.6) slab(g, at(0, 2.95, 0), at(L, 2.95, 0), nx, nz, 1.3, 0.08, shade(wall, 0.7));
     } else {

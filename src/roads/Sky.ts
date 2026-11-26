@@ -1,4 +1,5 @@
 import * as pc from 'playcanvas';
+import { SkyLife } from './SkyLife';
 
 // Sky dome: procedural gradient + tileable cumulus noise on an inside-out sphere that follows the camera.
 // Horizon colour == fog colour, so distant city fades into the sky. Tinted per time of day via emissive.
@@ -7,6 +8,7 @@ export const DAY_SKY = [0.62, 0.76, 0.9];
 export class Sky {
   readonly entity = new pc.Entity('sky');
   private mat = new pc.StandardMaterial();
+  private life: SkyLife;
 
   constructor(private app: pc.AppBase, radius: number) {
     const W = 512, H = 256, data = new Uint8Array(W * H * 4);
@@ -45,14 +47,17 @@ export class Sky {
     this.entity.addComponent('render', { type: 'sphere', material: m, castShadows: false, receiveShadows: false });
     this.entity.setLocalScale(radius * 2, radius * 2, radius * 2);
     app.root.addChild(this.entity);
+    this.life = new SkyLife(app, radius);
   }
 
   /** Tint relative to the day palette (sunset orange, night near-black). */
   tint(sky: number[]) {
     this.mat.emissive = new pc.Color(sky[0] / DAY_SKY[0], sky[1] / DAY_SKY[1], sky[2] / DAY_SKY[2]);
     this.mat.update();
-    this.app.scene.skyboxIntensity = Math.max(0.05, (sky[0] + sky[1] + sky[2]) / (DAY_SKY[0] + DAY_SKY[1] + DAY_SKY[2])); // dim reflections at night
+    const [r, , b] = sky; // which time-of-day preset is this sky colour?
+    this.life.set(r < 0.15 ? 'night' : r < 0.3 ? 'storm' : r > 0.9 && b < 0.5 ? 'sunset' : 'day');
+    this.app.scene.skyboxIntensity = Math.max(0.32, (sky[0] + sky[1] + sky[2]) / (DAY_SKY[0] + DAY_SKY[1] + DAY_SKY[2])); // dim reflections at night
   }
 
-  follow(pos: pc.Vec3) { this.entity.setPosition(pos.x, 0, pos.z); }
+  follow(pos: pc.Vec3) { this.entity.setPosition(pos.x, 0, pos.z); this.life.update(pos.x, pos.z); }
 }

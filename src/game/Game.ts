@@ -1,10 +1,11 @@
+import type { CollisionWorld } from '../map/CollisionWorld';
 import * as pc from 'playcanvas';
 import { CameraController } from '../camera/CameraController';
 import { InputManager } from '../input/InputManager';
 import { MapChunkManager } from '../map/MapChunkManager';
 import { StaticChunkProvider } from '../map/MapLoader';
 import { project, unproject } from '../map/MapProjection';
-import { GeometryBuffer, vertexColorMaterial } from '../map/MeshUtil';
+import { GeometryBuffer } from '../map/MeshUtil';
 import { groundMaterial } from '../roads/RoadMaterialSystem';
 import { HUD } from '../ui/HUD';
 import { MiniMap } from '../ui/MiniMap';
@@ -19,6 +20,8 @@ import { groundAt, terrainGrid } from '../map/Terrain';
 import { Sound } from '../audio/Sound';
 import { Pedestrians } from '../people/Pedestrians';
 import { Weather } from '../roads/Weather';
+import { Wind } from '../roads/Vegetation';
+import { buildWater, WaterSurface } from '../map/Water';
 import { Settings, type SettingValues } from '../ui/Settings';
 import { TaxiMode } from './modes/TaxiMode';
 import { Multiplayer } from './modes/Multiplayer';
@@ -68,6 +71,10 @@ export class Game {
   private saveT = 5;
   private peds!: Pedestrians;
   private weather!: Weather;
+  private waterSurface!: WaterSurface;
+  private wind!: Wind;
+  private coastT = 0;
+  private coastDist = Infinity;
   private sound = new Sound();
   private navToast: (m: string) => void = () => {};
   lastSlow = '';
@@ -94,8 +101,10 @@ export class Game {
     this.setupScene();
     this.map = new MapChunkManager(app, new StaticChunkProvider(GameConfig.dataUrl));
     await this.map.init();
+    this.waterSurface = new WaterSurface(app.graphicsDevice);
     this.buildSea();
     this.buildTerrain();
+    buildWater(app, this.map.water, this.waterSurface.material);
 
     // Load the street around the spawn (saved parking spot or default) first: the lobby shows it behind the garage.
     const spawn = GameConfig.spawn, q = new URLSearchParams(location.search);
@@ -109,7 +118,7 @@ export class Game {
     const lobbyAt = spot ? { x: spot.x, y: groundAt(spot.x, spot.z), z: spot.z, yaw: Math.atan2(-spot.dx, -spot.dz) } : { x: sx, y: groundAt(sx, sz), z: sz, yaw: 0 };
 
     // Lobby (garage + mode), or skipped with ?mode=free|taxi|metro&route=CM06 / ?room=name
-    const choice = await chooseMode(app, this.camEntity, lobbyAt);
+    const choice = await chooseMode(app, this.camEntity, lobbyAt, this.map.collision);
     const metroRoute = choice.mode === 'metro' ? choice.route : null;
     const metroStart = metroRoute ? playableStops(metroRoute) : [];
     if (metroStart.length >= 2) { [sx, sz] = [metroStart[0].x, metroStart[0].z]; await this.loadAround(sx, sz); }
@@ -150,6 +159,7 @@ export class Game {
     if (cmp) { this.compare = new RouteCompare(app, p, this.cam, canvas); await this.compare.init(cmp); }
     window.addEventListener('keydown', e => { if (!(e.target instanceof HTMLInputElement)) this.compare?.key(e.code); });
     this.weather = new Weather(app, [this.map.groundMat, this.groundMat], this.map.roads, this.sound);
+    this.wind = new Wind(this.map.foliageMat, (s, d) => this.sound.gust(s, d));
     this.settings = new Settings(v => {
       p.manual = v.manual;
       if (!v.manual && p.gear === 0) p.gear = 1;
@@ -256,9 +266,7 @@ export class Game {
     }
     const mesh = g.toMesh(this.app.graphicsDevice);
     if (!mesh) return;
-    const mat = vertexColorMaterial(true);
-    mat.gloss = 0.8;
-    mat.update();
+    const mat = this.waterSurface.material;
     const sea = new pc.Entity('sea');
     sea.addComponent('render', { meshInstances: [new pc.MeshInstance(mesh, mat)], castShadows: false });
     this.app.root.addChild(sea);
@@ -357,7 +365,18 @@ export class Game {
     this.sound.update(dt, p, Math.max(drive.throttle, drive.brake * (p.gear < 0 ? 1 : 0)), drive.horn, this.traffic.rush, !!this.police?.pullingOver, drive.brake, this.traffic.vehicles);
     this.cam.update(dt, p, this.map.collision);
     this.sky.follow(this.camEntity.getPosition());
+    this.map.landmarks.skyline(this.camEntity.getPosition());
     this.weather.update(dt, this.camEntity.getPosition(), p);
+    this.wind.update(dt, this.opts.rain);
+    this.waterSurface.update(dt);
+    this.map.signage?.update(dt);
+    if ((this.coastT -= dt) <= 0) { // distance to the shore, twice a second
+      this.coastT = 0.5;
+      let best = Infinity;
+      for (const l of this.map.index.coast) for (let i = 0; i < l.length; i += 2) best = Math.min(best, Math.hypot(l[i] - p.x, l[i + 1] - p.z));
+      this.coastDist = best;
+    }
+    this.sound.ambience(dt, { night: this.time.current === 'night', rain: this.opts.rain, coastDist: this.coastDist });
     const t0 = performance.now();
     this.map.signals.update(dt);
     this.traffic.update(dt);
@@ -407,12 +426,12 @@ export class Game {
 }
 
 /** Lobby (garage + mode). URL shortcuts skip it: ?mode=free|taxi|metro&route=CMxx, ?room=name, ?vehicle=car|... */
-async function chooseMode(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }): Promise<LobbyChoice> {
+async function chooseMode(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }, walls: CollisionWorld): Promise<LobbyChoice> {
   const q = new URLSearchParams(location.search);
   let routes: MetroRoute[] = [];
   try { routes = (await (await fetch(`${GameConfig.dataUrl}/metro.json`)).json()).routes; } catch { /* metro mode unavailable */ }
   const m = q.get('mode'), qRoom = q.get('room')?.trim() || undefined;
-  if (!m && !qRoom) return showLobby(app, camera, at, routes);
+  if (!m && !qRoom) return showLobby(app, camera, at, routes, walls);
   const vehicle = (q.get('vehicle') ?? localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey, color = (GARAGE[vehicle] ?? GARAGE.car).color;
   if (m === 'metro') {
     const route = routes.find(r => r.code === q.get('route')) ?? routes.find(r => r.code === 'CM06');

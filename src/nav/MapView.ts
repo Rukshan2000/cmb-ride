@@ -1,5 +1,9 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// Vite can't find maplibre's worker by itself; without it vector layers (the blue route line) never draw.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+maplibregl.setWorkerUrl(workerUrl);
 
 // 2D navigation map: OSM raster tiles (road names, real network), player arrow, destination, route.
 // ponytail: tile.openstreetmap.org is fine for development only (tile usage policy); use a tile provider/key for production.

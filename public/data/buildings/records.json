@@ -2,8 +2,8 @@
  {
   "id": "colombo_landmark_001",
   "name": "Lotus Tower",
-  "latitude": 6.92715,
-  "longitude": 79.85825,
+  "latitude": 6.92703,
+  "longitude": 79.85832,
   "osm": [
    728831229
   ],
@@ -12,7 +12,8 @@
   "primaryColor": "",
   "secondaryColors": [],
   "roofType": "",
-  "model": "",
+  "model": "buildings/models/lotus-tower.glb",
+  "skyline": true,
   "heading": 0,
   "scale": 1,
   "references": [
@@ -330,7 +331,7 @@
     "distance": 54
    }
   ],
-  "source": "OSM way 374793744 footprint; fa\u00e7ade from Mapillary photos listed in references; scripts/models/cargills.ts",
+  "source": "OSM way 374793744 footprint; façade from Mapillary photos listed in references; scripts/models/cargills.ts",
   "confidence": "reference_based",
   "floors": 2
  },
@@ -1120,5 +1121,104 @@
   "references": [],
   "source": "OSM way 401634492 footprint; Mapillary street-level references",
   "confidence": "unverified"
+ },
+ {
+  "id": "one-galle-face-1",
+  "name": "One Galle Face Tower 1 (Shangri-La)",
+  "latitude": 6.926466238567054,
+  "longitude": 79.84488688489537,
+  "osm": [
+   839411971
+  ],
+  "buildingType": "landmark",
+  "model": "buildings/models/one-galle-face-1.glb",
+  "references": [],
+  "source": "OSM footprint; appearance from user-supplied photos",
+  "confidence": "approximate",
+  "height": 194,
+  "skyline": true
+ },
+ {
+  "id": "one-galle-face-2",
+  "name": "One Galle Face Tower 2 (Shangri-La)",
+  "latitude": 6.926812539109082,
+  "longitude": 79.84542078818919,
+  "osm": [
+   839411972
+  ],
+  "buildingType": "landmark",
+  "model": "buildings/models/one-galle-face-2.glb",
+  "references": [],
+  "source": "OSM footprint; appearance from user-supplied photos",
+  "confidence": "approximate",
+  "height": 194,
+  "skyline": true
+ },
+ {
+  "id": "one-galle-face-3",
+  "name": "Shangri-La Colombo",
+  "latitude": 6.927856830626871,
+  "longitude": 79.84513664304639,
+  "osm": [
+   705103818
+  ],
+  "buildingType": "landmark",
+  "model": "buildings/models/one-galle-face-3.glb",
+  "references": [],
+  "source": "OSM footprint; appearance from user-supplied photos",
+  "confidence": "approximate",
+  "height": 158,
+  "skyline": true
+ },
+ {
+  "id": "fort-station",
+  "name": "Colombo Fort Railway Station",
+  "latitude": 6.933726422693308,
+  "longitude": 79.85008022557876,
+  "osm": [
+   232514810
+  ],
+  "buildingType": "landmark",
+  "model": "buildings/models/fort-station.glb",
+  "references": [],
+  "source": "OSM footprint; appearance from user-supplied photos",
+  "confidence": "approximate",
+  "sign": {
+   "text": "FORT RAILWAY STATION   කොටුව දුම්රිය ස්ථානය   கோட்டை புகையிரத நிலையம்",
+   "x": 0.6302029051691939,
+   "y": 5.2,
+   "z": -6.398475768730542,
+   "yaw": 174.22188093087337,
+   "w": 66,
+   "h": 1.7
+  }
+ },
+ {
+  "id": "red-mosque",
+  "name": "Jami Ul-Alfar Mosque (Red Mosque)",
+  "latitude": 6.938427755732747,
+  "longitude": 79.85188644756936,
+  "osm": [],
+  "buildingType": "religious",
+  "model": "buildings/models/red-mosque.glb",
+  "references": [],
+  "source": "OSM outline; stylised model",
+  "confidence": "approximate"
+ },
+ {
+  "id": "gangaramaya",
+  "name": "Gangaramaya Temple",
+  "latitude": 6.9164998796473895,
+  "longitude": 79.8564743962128,
+  "osm": [
+   1054624854,
+   1054624855,
+   1054624856
+  ],
+  "buildingType": "religious",
+  "model": "buildings/models/gangaramaya.glb",
+  "references": [],
+  "source": "OSM outline; stylised model",
+  "confidence": "approximate"
  }
 ]

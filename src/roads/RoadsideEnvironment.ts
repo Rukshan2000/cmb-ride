@@ -2,13 +2,16 @@ import type { ChunkData, RoadData } from '../map/MapTypes';
 import type { GeometryBuffer } from '../map/MeshUtil';
 import { isElevated } from '../map/RoadNetwork';
 import { box } from './StreetFurniture';
+import type { WallPanel } from './Signage';
+import { cart, dog, parked } from './Clutter';
+import { bush, flowers, palm, tree } from './Vegetation';
 import { rankOf } from './RoadMarkingGenerator';
 
 // Roadside life along every road: shade trees (rain trees on main roads, palms / mango / jak on side streets),
 // small roadside boutiques ('kade'), CEB concrete utility poles with overhead wires.
 // Deterministic per road (seeded by OSM id); nothing is placed inside an OSM building footprint or in a junction.
 
-const LEAF = [0x3f6b2c, 0x4a7a32, 0x36602a, 0x557f36, 0x2f5a26], TRUNK = 0x5a4a3c, PALM_TRUNK = 0x7a6a58;
+const WALL = [0xe9e4d8, 0xd9c9a8, 0xc9d4c0, 0xe0b8a0, 0xbfc4c8, 0xa8644a], COPING = 0xcfcabc;
 const KADE_WALL = [0xe8dcc0, 0xd6e2d0, 0xf0e0b0, 0xdcd0e8, 0xe6cfc0], KADE_BOARD = [0xd8262e, 0xf2c230, 0x1f5fa8, 0x1e8a4a, 0xf07820];
 const POLE = 0x9c9a92, WIRE = 0x1a1a1a, ZINC = 0x8c9094;
 
@@ -39,7 +42,7 @@ export function roadMask(c: ChunkData) {
 }
 
 /** Footprint lookup: point inside any building (with margin) in this chunk. */
-function occupancy(c: ChunkData) {
+export function occupancy(c: ChunkData) {
   const CELL = 20, grid = new Map<string, number[][]>();
   for (const b of c.buildings) {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
@@ -56,44 +59,6 @@ function occupancy(c: ChunkData) {
     }
     return false;
   };
-}
-
-/** Low-poly blob canopy (lat-long sphere, squashed), per-vertex shade variation. */
-function blob(g: GeometryBuffer, x: number, y: number, z: number, rx: number, ry: number, c: number, r: () => number) {
-  const SU = 7, SV = 4, b = g.vertexCount;
-  for (let v = 0; v <= SV; v++) for (let u = 0; u <= SU; u++) {
-    const th = (v / SV) * Math.PI, ph = (u / SU) * Math.PI * 2, j = 0.85 + r() * 0.3;
-    const nx = Math.sin(th) * Math.cos(ph), ny = Math.cos(th), nz = Math.sin(th) * Math.sin(ph);
-    const sh = 0.8 + (ny + 1) * 0.15, col = ((Math.min(255, ((c >> 16) & 255) * sh) << 16) | (Math.min(255, ((c >> 8) & 255) * sh) << 8) | Math.min(255, (c & 255) * sh)) >>> 0;
-    g.vertex(x + nx * rx * j, y + ny * ry * j, z + nz * rx * j, nx, ny, nz, col);
-  }
-  for (let v = 0; v < SV; v++) for (let u = 0; u < SU; u++) {
-    const a = b + v * (SU + 1) + u, d = a + SU + 1;
-    g.idx.push(a, d, a + 1, a + 1, d, d + 1);
-  }
-}
-
-function palm(g: GeometryBuffer, x: number, z: number, r: () => number) {
-  const h = 7 + r() * 4, lx = (r() - 0.5) * 0.8, lz = (r() - 0.5) * 0.8; // slight lean
-  box(g, x + lx * 0.5, 0, z + lz * 0.5, 0, -1, 0.3, h, 0.3, PALM_TRUNK);
-  const tx = x + lx, tz = z + lz;
-  const FR = 9;
-  for (let k = 0; k < FR; k++) { // drooping fronds: two-triangle strips out and down
-    const a = (k / FR) * Math.PI * 2 + r() * 0.3, ca = Math.cos(a), sa = Math.sin(a), len = 3 + r();
-    const px = -sa * 0.35, pz = ca * 0.35, col = LEAF[k % LEAF.length], b = g.vertexCount;
-    g.vertex(tx - px, h, tz - pz, 0, 1, 0, col); g.vertex(tx + px, h, tz + pz, 0, 1, 0, col);
-    g.vertex(tx + ca * len * 0.55 + px, h + 0.5, tz + sa * len * 0.55 + pz, 0, 1, 0, col); g.vertex(tx + ca * len * 0.55 - px, h + 0.5, tz + sa * len * 0.55 - pz, 0, 1, 0, col);
-    g.vertex(tx + ca * len, h - 1.2, tz + sa * len, 0, 1, 0, col);
-    g.idx.push(b, b + 1, b + 2, b, b + 2, b + 3, b + 3, b + 2, b + 4);
-  }
-}
-
-function shadeTree(g: GeometryBuffer, x: number, z: number, big: boolean, r: () => number) {
-  const h = big ? 4 + r() * 2 : 2.2 + r(), rad = big ? 4.5 + r() * 2.5 : 2.3 + r() * 1.2;
-  box(g, x, 0, z, 0, -1, big ? 0.55 : 0.32, h + 0.6, big ? 0.55 : 0.32, TRUNK);
-  const col = LEAF[Math.floor(r() * LEAF.length)];
-  blob(g, x, h + rad * 0.35, z, rad, rad * (big ? 0.42 : 0.7), col, r);
-  if (big) blob(g, x + (r() - 0.5) * rad, h + rad * 0.5, z + (r() - 0.5) * rad, rad * 0.6, rad * 0.35, LEAF[(LEAF.indexOf(col) + 1) % LEAF.length], r);
 }
 
 /** Petti kade: small lean-to roadside shop with signboard, open front and zinc roof, facing the road. */
@@ -120,8 +85,9 @@ function wire(g: GeometryBuffer, ax: number, az: number, bx: number, bz: number,
   for (let i = 0; i < SAG; i++) { const a = b + i * 2; g.idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
 }
 
-export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: GeometryBuffer, posts: number[]) {
-  const inBuilding = occupancy(c), onRoad = roadMask(c);
+/** `around` = this chunk plus its neighbours' roads and buildings, so nothing lands on a road across a tile edge. */
+export function buildRoadside(c: ChunkData, around: ChunkData, solid: GeometryBuffer, foliage: GeometryBuffer, blooms: GeometryBuffer, posts: number[], walls: WallPanel[] = []) {
+  const inBuilding = occupancy(around), onRoad = roadMask(around);
   const blocked = (x: number, z: number, m: number) => inBuilding(x, z, m) || onRoad(x, z, m);
   const near = (x: number, z: number, list: number[] | undefined, stride: number, d: number) => {
     if (!list) return false;
@@ -139,14 +105,48 @@ export function buildRoadside(c: ChunkData, solid: GeometryBuffer, foliage: Geom
       const s = k % 2 ? 1 : -1, tx = x + uz * kerb * s, tz = z - ux * kerb * s;
       if (rnd() < (rank >= 2 ? 0.25 : 0.4) || !clear(tx, tz, 1.5)) return;
       const big = rank >= 2 && rnd() < 0.7;
-      if (rank >= 2) shadeTree(foliage, tx, tz, big, rnd);
-      else if (rnd() < 0.45) palm(foliage, tx, tz, rnd); else shadeTree(foliage, tx, tz, false, rnd);
+      if (rank >= 2) tree(solid, foliage, tx, tz, big, rnd);
+      else if (rnd() < 0.45) palm(solid, foliage, tx, tz, rnd); else tree(solid, foliage, tx, tz, false, rnd);
       posts.push(tx, tz, big ? 0.3 : 0.2);
     });
     if (rank <= 2) walk(r, 55, (x, z, ux, uz) => {          // roadside kades on secondary and smaller streets
       if (rnd() > 0.35) return;
       const s = rnd() < 0.5 ? 1 : -1, off = r.w / 2 + (rank >= 1 ? 2.6 : 1.6) + 1.1, kx = x + uz * off * s, kz = z - ux * off * s;
       if (clear(kx, kz, 2.2)) { kade(solid, kx, kz, -uz * s, ux * s, rnd); posts.push(kx - uz * s * -1.1, kz + ux * s * -1.1, 1.2); }
+    });
+    // Kerbside clutter: parked three-wheelers and bikes, fruit carts, street dogs.
+    walk(r, 24, (x, z, ux, uz) => {
+      if (rnd() < 0.45) return;
+      const side = rnd() < 0.5 ? 1 : -1, off = r.w / 2 + 1.0, px = x + uz * off * side, pz = z - ux * off * side;
+      const roll = rnd(), dir = side > 0 ? 1 : -1; // parked facing the way that side of the road flows
+      if (![-1.4, 0, 1.4].every(d => clear(px + ux * d, pz + uz * d, 0.65))) return;
+      if (posts.some((v, i) => i % 3 === 0 && Math.abs(v - px) < 1.8 && Math.abs(posts[i + 1] - pz) < 1.8)) return;
+      if (roll < 0.34) { parked(solid, 'tuktuk', px, pz, ux * dir, uz * dir, rnd); posts.push(px, pz, 0.6); }
+      else if (roll < 0.62) for (let k = 0; k < 1 + Math.floor(rnd() * 3); k++) { // bikes in a row
+        parked(solid, 'motorcycle', px + ux * (k - 1) * 0.9, pz + uz * (k - 1) * 0.9, -uz * side, ux * side, rnd);
+        posts.push(px + ux * (k - 1) * 0.9, pz + uz * (k - 1) * 0.9, 0.35);
+      } else if (roll < 0.8 && rank <= 2) { cart(solid, px, pz, ux, uz, rnd); posts.push(px, pz, 0.7); }
+      else dog(solid, px, pz, rnd() < 0.5 ? ux : -uz, rnd() < 0.5 ? uz : ux, rnd);
+    });
+    // Garden walls with planting in front on side streets; shrubs and flower beds along bigger roads.
+    const paint = WALL[Math.floor(rnd() * WALL.length)];
+    for (const side of [-1, 1]) walk(r, 6, (x, z, ux, uz) => {
+      const at = (off: number) => [x + uz * off * side, z - ux * off * side] as const;
+      const [px, pz] = at(r.w / 2 + (rank >= 1 ? 1.1 : 0.7)); // planting strip
+      const [wx, wz] = at(r.w / 2 + (rank >= 1 ? 3.4 : 1.7)); // wall line
+      const fits = (qx: number, qz: number) => [-2.6, 0, 2.6].every(d => clear(qx + ux * d, qz + uz * d, 0.35));
+      if (rank <= 1 && rnd() < 0.65 && fits(wx, wz) && !posts.some((v, i) => i % 3 === 0 && Math.abs(v - wx) < 3 && Math.abs(posts[i + 1] - wz) < 3)) {
+        const col = rnd() < 0.75 ? paint : WALL[Math.floor(rnd() * WALL.length)], h = 1.3 + rnd() * 0.5;
+        box(solid, wx, 0, wz, ux, uz, 0.18, h, 5.6, col);
+        box(solid, wx, h, wz, ux, uz, 0.26, 0.09, 5.7, COPING);
+        for (const d of [-2.8, 2.8]) box(solid, wx + ux * d, 0, wz + uz * d, ux, uz, 0.34, h + 0.28, 0.34, COPING); // gate pillars
+        walls.push([wx, wz, ux, uz, side]);
+        for (let d = -2.5; d <= 2.5; d += 1) posts.push(wx + ux * d, wz + uz * d, 0.12);
+        if (rnd() < 0.35) bush(foliage, wx, wz, rnd, true); // bougainvillea spilling over
+      }
+      const roll = rnd();
+      if (roll < 0.3 && clear(px, pz, 0.45)) bush(foliage, px + ux * (rnd() * 3 - 1.5), pz + uz * (rnd() * 3 - 1.5), rnd, rnd() < 0.35);
+      else if (roll < 0.42 && clear(px, pz, 0.6)) flowers(foliage, blooms, px, pz, rnd);
     });
     // CEB concrete poles on the left kerb every ~35 m, wired together.
     let prev: [number, number] | null = null;

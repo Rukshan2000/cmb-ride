@@ -1,8 +1,10 @@
 import * as pc from 'playcanvas';
+import type { CollisionWorld } from '../map/CollisionWorld';
 import { CATALOG } from '../traffic/VehicleCatalog';
 import { ModelCache } from '../traffic/VehicleModels';
 import { GARAGE, type GarageKey, type VehicleConfig } from '../vehicle/VehicleConfig';
 import { VehiclePhysics } from '../vehicle/VehiclePhysics';
+import { IMPORTED, glbEntity } from '../vehicle/ImportedModels';
 import { playableStops, type MetroRoute } from '../game/modes/MetroBusMode';
 
 // Start lobby: garage (3D turntable on the real street behind the UI, stats, paint), mode tiles, multiplayer room
@@ -12,6 +14,7 @@ export type LobbyChoice = ({ mode: 'free' | 'taxi'; room?: string } | { mode: 'm
 
 const KEYS = Object.keys(GARAGE) as GarageKey[];
 const BLURB: Record<GarageKey, string> = {
+  muscle: 'V8 muscle coupe. Rear-wheel drive, mind the throttle.',
   car: 'Axio-class hybrid sedan. The all-rounder.', motorcycle: '150 cc commuter. Splits traffic, leans hard.',
   tuktuk: 'Bajaj-style three-wheeler. King of Colombo streets.', van: 'HiAce-class diesel. Torque for days.', bus: '10.5 m city bus. Everyone moves out of the way.',
 };
@@ -35,7 +38,7 @@ function measure(cfg: VehicleConfig) {
   return { top: p.forwardSpeed * 3.6, t60, grip: cfg.mu * Math.min(1, cfg.corneringStiffness / cfg.mass / 60) * (1 + cfg.maxSteer), mass: cfg.mass };
 }
 
-export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }, routes: MetroRoute[]): Promise<LobbyChoice> {
+export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }, routes: MetroRoute[], walls?: CollisionWorld): Promise<LobbyChoice> {
   const stats = Object.fromEntries(KEYS.map(k => [k, measure(GARAGE[k])])) as Record<GarageKey, ReturnType<typeof measure>>;
   const max = { top: Math.max(...KEYS.map(k => stats[k].top)), grip: Math.max(...KEYS.map(k => stats[k].grip)) };
   let vi = Math.max(0, KEYS.indexOf((localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey));
@@ -86,16 +89,28 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
     car?.destroy();
     const c = cfgOf(), [r, g, b] = colorOf(), hex = (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
     const spec = { ...CATALOG.find(s => s.id === (c.model ?? 'sedan'))!, length: c.length, width: c.width, height: c.height };
-    car = models.entity(spec, { color: hex, accent: c.accent, rider: 0x2a3a5a, helmet: 0x151515 }).root;
+    const imp = IMPORTED[c.model ?? ''];
+    car = imp ? new pc.Entity('showroom') : models.entity(spec, { color: hex, accent: c.accent, rider: 0x2a3a5a, helmet: 0x151515 }).root;
     car.setPosition(at.x, at.y, at.z);
     app.root.addChild(car);
+    if (imp) {
+      car.addChild(glbEntity(app, imp.file, imp.yaw, imp.paint ? [r, g, b] : undefined));
+      if (imp.wheel) for (const z of [-c.cgToFront, c.cgToRear]) for (const x of [-1, 1]) {
+        const w = new pc.Entity(); car.addChild(w);
+        w.setLocalPosition(x * c.trackWidth / 2, c.wheelRadius, z); w.setLocalScale(x, 1, 1);
+        w.addChild(glbEntity(app, imp.wheel));
+      }
+    }
   };
   const frame = (dt: number) => {
     if (!car) return;
     if (!drag) orbit += dt * 0.25;
     spin += dt;
     const L = cfgOf().length, d = 4 + L * 0.9, h = 1.2 + L * 0.12;
-    camera.setPosition(at.x + Math.sin(orbit) * d, at.y + h, at.z + Math.cos(orbit) * d);
+    // Never orbit through a wall: pull in to just short of the first one, and rise to keep the vehicle in view.
+    const cx = at.x + Math.sin(orbit) * d, cz = at.z + Math.cos(orbit) * d, t = walls?.raycast(at.x, at.z, cx, cz) ?? 1;
+    const k = t < 1 ? Math.max(0.35, t - 0.08) : 1;
+    camera.setPosition(at.x + (cx - at.x) * k, at.y + h + (1 - k) * 4, at.z + (cz - at.z) * k);
     // Aim left of the car so it sits in the open area right of the side panel.
     const rx = Math.cos(orbit), rz = -Math.sin(orbit), off = innerWidth > 800 ? -L * 0.35 : 0;
     camera.lookAt(at.x + rx * off, at.y + 0.8, at.z + rz * off);

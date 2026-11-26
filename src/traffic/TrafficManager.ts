@@ -248,14 +248,32 @@ export class TrafficManager {
       const dx = st.x - v.x, dz = st.z - v.z, along = dx * v.ux + dz * v.uz;
       if (along < -1 || along > 80 || Math.abs(dx * lx + dz * lz) > st.hw + 1) continue;
       const aspect = this.map.signals.aspect(st.group);
-      if (aspect === 'green') { v.amberGo = false; continue; }
-      const stopDist = (v.v * v.v) / (2 * v.b);
-      if (aspect === 'amber' && (v.amberGo || along - v.spec.length / 2 < stopDist * 0.8)) { v.amberGo = true; continue; }
-      if (aspect === 'red' && along - v.spec.length / 2 < (v.v * v.v) / (2 * 8)) continue; // physically can't stop: clear the junction
+      const toLine = along - v.spec.length / 2;
+      if (aspect === 'green') {
+        v.amberGo = false;
+        // Even on green, wait at the line while the junction is occupied or there's no room on the far side.
+        if (toLine < -0.5 || toLine > 15 || !this.junctionBlocked(v, along)) continue;
+      } else {
+        const stopDist = (v.v * v.v) / (2 * v.b);
+        if (aspect === 'amber' && (v.amberGo || toLine < stopDist * 0.8)) { v.amberGo = true; continue; }
+        if (aspect === 'red' && (toLine < (v.v * v.v) / (2 * 8) || (v.amberGo && toLine < 8))) continue; // committed: clear the junction
+        v.amberGo = false;
+      }
       const g = along - v.spec.length / 2 - 0.5;
       if (g < gap) { gap = Math.max(g, 0.05); leadV = 0; leader = undefined; }
     }
     return { gap, leadV, leader };
+  }
+
+  /** Box check beyond a stop line `along` metres ahead: crossing traffic still inside, or a standing queue ahead. */
+  private junctionBlocked(v: TrafficVehicle, along: number) {
+    return this.vehicles.some(o => {
+      if (o === v || Math.abs((o.y ?? 0) - (v.y ?? 0)) > 2.5) return false;
+      const dx = o.x - v.x, dz = o.z - v.z, a = dx * v.ux + dz * v.uz - along, side = Math.abs(dx * v.uz - dz * v.ux);
+      const dot = o.ux * v.ux + o.uz * v.uz;
+      if (Math.abs(dot) < 0.5) return a > 1 && a < 18 && side < 6 && o.v > 0.5; // still clearing (a stopped one is waiting at its own line)
+      return dot > 0.8 && o.v < 0.8 && a > 2 && a < 16 && side < 1.6;          // don't block the box
+    });
   }
 
   private clearToPass(v: TrafficVehicle) {

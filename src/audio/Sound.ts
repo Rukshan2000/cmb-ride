@@ -1,3 +1,4 @@
+import { Ambience, type AmbienceState } from './Ambience';
 import type { VehiclePhysics } from '../vehicle/VehiclePhysics';
 import type { TrafficVehicle } from '../traffic/TrafficManager';
 import { EngineVoice, type EngineKind } from './EngineVoice';
@@ -222,6 +223,21 @@ export class Sound {
     s.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.7;
     g.gain.setValueAtTime(0.15 + strength * 0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5 + strength * 0.4);
     s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + 1);
+  }
+
+  /** A gust through the trees: band-passed noise swelling and dying away. */
+  gust(strength: number, seconds: number) {
+    const c = this.ctx, t = c.currentTime, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = this.noise; s.loop = true; s.playbackRate.value = 0.6;
+    f.type = 'bandpass'; f.Q.value = 0.9;
+    f.frequency.setValueAtTime(280, t); f.frequency.linearRampToValueAtTime(700, t + seconds / 2); f.frequency.linearRampToValueAtTime(260, t + seconds);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(strength * 0.22, t + seconds / 2); g.gain.linearRampToValueAtTime(0.0001, t + seconds);
+    s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + seconds + 0.1);
+  }
+
+  private street?: Ambience;
+  ambience(dt: number, state: AmbienceState) {
+    (this.street ??= new Ambience(this.ctx, this.master, this.noise)).update(dt, state);
   }
 
   private crash(strength: number) {

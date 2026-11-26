@@ -28,7 +28,7 @@ export interface VehicleConfig {
   suspensionStiffness: number; // visual body pitch/roll spring
   suspensionDamping: number;
   color: [number, number, number];
-  model?: 'sedan' | 'bus' | 'van' | 'tuktuk' | 'motorcycle';  // body from VehicleModels (default sedan)
+  model?: 'sedan' | 'bus' | 'van' | 'tuktuk' | 'motorcycle' | 'camaro';  // body from VehicleModels (default sedan)
   engine?: EngineKind;      // engine sound (default petrol4)
   bike?: boolean;           // two-wheeler: leans into turns instead of rolling out
   accent?: number;          // livery band colour (bus)
@@ -137,5 +137,17 @@ export const van: VehicleConfig = {
 };
 
 /** Free-mode garage, in menu order. */
-export const GARAGE = { car: compactSedan, motorcycle, tuktuk, van, bus: cityBus } as const;
+/** 1960s-70s American muscle coupe (supplied model): rear-wheel drive, big V8 torque. */
+export const muscleCar: VehicleConfig = {
+  ...compactSedan,
+  name: 'Muscle coupe', model: 'camaro', engine: 'diesel6',
+  mass: 1550, inertia: 2600, cgToFront: 1.54, cgToRear: 1.23, cgHeight: 0.5, trackWidth: 1.63, wheelRadius: 0.34,
+  length: 4.75, width: 1.88, height: 1.29, driveFront: false,
+  torqueCurve: [[800, 300], [2500, 440], [4000, 480], [5500, 400], [6000, 340]],
+  redline: 6000, shiftUpRpm: 5400, gears: [2.52, 1.88, 1.46, 1.0], finalDrive: 3.55,
+  corneringStiffness: 95000, mu: 1.05, brakeForce: 15000,
+  color: [0.69, 0.11, 0.13],
+};
+
+export const GARAGE = { muscle: muscleCar, car: compactSedan, motorcycle, tuktuk, van, bus: cityBus } as const;
 export type GarageKey = keyof typeof GARAGE;

@@ -7,6 +7,7 @@ export class GeometryBuffer {
   nrm: number[] = [];
   col: number[] = [];
   idx: number[] = [];
+  uv: number[] = [];   // optional explicit UVs (one pair per vertex); otherwise box-mapped
 
   get vertexCount() { return this.pos.length / 3; }
 
@@ -35,7 +36,7 @@ export class GeometryBuffer {
       if (Math.abs(ny) > 0.7) uv.push(x / 7, z / 7);
       else uv.push((Math.abs(nx) > Math.abs(nz) ? z : x) / 7, y / 7);
     }
-    mesh.setUvs(0, uv);
+    mesh.setUvs(0, this.uv.length === this.vertexCount * 2 ? this.uv : uv);
     mesh.setIndices(this.vertexCount > 65535 ? new Uint32Array(this.idx) : new Uint16Array(this.idx));
     mesh.update();
     return mesh;

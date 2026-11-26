@@ -44,25 +44,26 @@ function face(g: GeometryBuffer, x: number, y: number, z: number, fx: number, fz
   g.idx.push(v, v + 1, v + 2, v, v + 2, v + 3, v, v + 2, v + 1, v, v + 3, v + 2);
 }
 
-/** Splits signals into two conflicting phase groups per junction cluster. */
+/**
+ * Splits signals into two conflicting phase groups. Signals within 45 m (chained) form one junction; its main axis is
+ * the mean heading folded to 90°, and each approach joins the group of whichever of the two road axes it runs along.
+ */
 export function signalGroups(sig: number[]): number[] {
-  const groups: number[] = [];
-  for (let i = 0; i < sig.length; i += 5) {
-    let g = 0;
-    for (let j = 0; j < i; j += 5) {
-      if (Math.hypot(sig[i] - sig[j], sig[i + 1] - sig[j + 1]) < 45) {
-        const crossing = Math.abs(Math.sin(sig[i + 2] - sig[j + 2])) > 0.7;
-        g = crossing ? 1 - groups[j / 5] : groups[j / 5];
-        break;
-      }
-    }
-    groups.push(g);
+  const n = sig.length / 5, groups = new Array<number>(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    if (groups[i] >= 0) continue;
+    const mem = [i];
+    for (const m of mem) for (let j = 0; j < n; j++)
+      if (!mem.includes(j) && Math.hypot(sig[j * 5] - sig[m * 5], sig[j * 5 + 1] - sig[m * 5 + 1]) < 45) mem.push(j);
+    const ref = Math.atan2(mem.reduce((t, m) => t + Math.sin(4 * sig[m * 5 + 2]), 0), mem.reduce((t, m) => t + Math.cos(4 * sig[m * 5 + 2]), 0)) / 4;
+    for (const m of mem) { const d = sig[m * 5 + 2] - ref; groups[m] = Math.abs(Math.cos(d)) >= Math.abs(Math.sin(d)) ? 0 : 1; }
   }
   return groups;
 }
 
-export function buildFurniture(c: ChunkData, b: FurnitureBuffers, markings: GeometryBuffer) {
-  const onRoad = roadMask(c);
+export function buildFurniture(c: ChunkData, around: ChunkData, b: FurnitureBuffers, markings: GeometryBuffer) {
+  const onRoad = roadMask(around);
+  const onStreet = roadMask({ ...around, roads: around.roads.filter(r => !isElevated(r)) }); // ground level only
   // --- Traffic signals: stop line, pole on the left kerb, 3-aspect head facing approaching traffic.
   const sig = c.sig ?? [], groups = signalGroups(sig);
   for (let i = 0; i < sig.length; i += 5) {
@@ -101,7 +102,7 @@ export function buildFurniture(c: ChunkData, b: FurnitureBuffers, markings: Geom
   }
 
   // --- Flyovers: concrete deck edge (fascia), parapet walls, soffit and piers. Piers are solid for collision.
-  for (const r of c.roads) if (isElevated(r)) flyover(b, r);
+  for (const r of c.roads) if (isElevated(r)) flyover(b, r, onStreet);
 
   // --- Streetlights: real OSM lamps plus (approximation) staggered single-arm poles on major roads.
   const lamp = (x: number, z: number, ax: number, az: number, reach: number) => {
@@ -182,7 +183,7 @@ function wallStrip(g: GeometryBuffer, p: number[], y: number[], off: number, lo:
   }
 }
 
-function flyover(b: FurnitureBuffers, r: RoadData) {
+function flyover(b: FurnitureBuffers, r: RoadData, onStreet: (x: number, z: number, m: number) => boolean) {
   const y = r.y!, hw = r.w / 2, THICK = 1.1;
   for (const s of [-1, 1]) {
     wallStrip(b.solid, r.p, y, s * (hw + 0.3), -THICK, 0.06, DECK);        // deck edge / fascia
@@ -200,6 +201,7 @@ function flyover(b: FurnitureBuffers, r: RoadData) {
       const h = y[i] + (y[i + 1] - y[i]) * (t / len) - THICK;
       if (h < 2.2) continue;
       const px = x0 + ux * t, pz = z0 + uz * t;
+      if ([-1.2, 1.2].some(d => onStreet(px - uz * d, pz + ux * d, 0.9))) continue; // never plant a pier in a road below
       box(b.solid, px, 0, pz, ux, uz, Math.min(r.w * 0.55, 6), h, 1.4, PIER);
       box(b.solid, px, h - 0.6, pz, ux, uz, r.w + 0.4, 0.6, 1.6, PIER);   // pier cap
       b.posts.push(px - uz * 1.2, pz + ux * 1.2, 0.8, px + uz * 1.2, pz - ux * 1.2, 0.8); // two 1.6 m squares across the pier

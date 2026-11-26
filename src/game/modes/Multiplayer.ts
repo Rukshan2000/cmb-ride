@@ -4,6 +4,8 @@ import { ModelCache } from '../../traffic/VehicleModels';
 import type { VehiclePhysics } from '../../vehicle/VehiclePhysics';
 import type { MapChunkManager } from '../../map/MapChunkManager';
 import type { ModeHUD } from './ModeHUD';
+import { IMPORTED, glbEntity } from '../../vehicle/ImportedModels';
+import { GARAGE } from '../../vehicle/VehicleConfig';
 
 // Shared rooms (backend /api/mp over a WebSocket, 20 Hz): see each other drive, plus room events.
 //   Y = start a checkpoint race from here · U = start tag (you're "it") · X = stop the event
@@ -105,8 +107,19 @@ export class Multiplayer {
       if (s && (s.data.model !== r.model || s.data.color !== r.color)) { s.e.destroy(); s.label.remove(); this.others.delete(r.id); s = undefined; }
       if (!s) {
         const spec = CATALOG.find(c => c.id === r.model) ?? CATALOG.find(c => c.id === 'sedan')!;
-        const { root } = this.models.entity(spec, { color: r.color, rider: 0x2a3a5a, helmet: 0x151515 });
+        const imp = IMPORTED[r.model];
+        const root = imp ? new pc.Entity(r.model) : this.models.entity(spec, { color: r.color, rider: 0x2a3a5a, helmet: 0x151515 }).root;
         this.app.root.addChild(root);
+        if (imp) {
+          const rgb: [number, number, number] = [((r.color >> 16) & 255) / 255, ((r.color >> 8) & 255) / 255, (r.color & 255) / 255];
+          root.addChild(glbEntity(this.app, imp.file, imp.yaw, imp.paint ? rgb : undefined));
+          const g = Object.values(GARAGE).find(v => v.model === r.model)!;
+          if (imp.wheel) for (const z of [-g.cgToFront, g.cgToRear]) for (const x of [-1, 1]) {
+            const w = new pc.Entity(); root.addChild(w);
+            w.setLocalPosition(x * g.trackWidth / 2, g.wheelRadius, z); w.setLocalScale(x, 1, 1);
+            w.addChild(glbEntity(this.app, imp.wheel));
+          }
+        }
         root.setPosition(r.x, r.y, r.z);
         const label = document.createElement('div');
         label.style.cssText = 'position:fixed;pointer-events:none;font:600 12px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:2px 7px;border-radius:9px;transform:translate(-50%,-100%);white-space:nowrap;z-index:5';

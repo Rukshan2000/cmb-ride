@@ -111,7 +111,7 @@ interface Room { players: Map<string, MpPlayer>; event: MpEvent | null }
 const rooms = new Map<string, Room>();
 let eventSeq = 1;
 setInterval(() => { const now = Date.now(); for (const [k, r] of rooms) if ([...r.players.values()].every(p => now - p.t > 5000)) rooms.delete(k); }, 30000).unref();
-const MODELS = ['sedan', 'bus', 'van', 'tuktuk', 'motorcycle'];
+const MODELS = ['sedan', 'bus', 'van', 'tuktuk', 'motorcycle', 'camaro'];
 
 export function mpStep(b: any, now = Date.now()) {
   const str = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/[^\w \-.]/g, '').slice(0, max) : '');
