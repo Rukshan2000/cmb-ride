@@ -1,4 +1,5 @@
-// Player progress in localStorage: money (starts at Rs 30,000), taxi trips, fines, last position.
+// Player progress, kept in this browser while playing and written to the account database on Save: money (starts at Rs 30,000), taxi trips, fines, last position.
+import { store, username } from '../account/Store';
 const KEY = 'cmb-rider-save';
 export const START_MONEY = 30000;
 
@@ -6,15 +7,22 @@ export interface SaveData {
   money: number; trips: number; fines: number; finesTotal: number;
   clock: number;               // game time, minutes since midnight
   pos?: { x: number; z: number; yaw: number };
+  savedAt?: number;            // ms; the newer of the browser and database copies wins on load
 }
 
 export class Wallet {
   data: SaveData;
   private el = document.createElement('div');
+  private localKey = `cmbdraft:${username}`; // per account; not a 'cmb-rider-' key, which sign-up adopts
 
   constructor() {
     let saved: Partial<SaveData> = {};
-    try { saved = JSON.parse(localStorage.getItem(KEY) ?? '{}'); } catch { /* corrupt save: start fresh */ }
+    for (const text of [store.getItem(KEY), localStorage.getItem(this.localKey)]) {
+      try {
+        const copy = JSON.parse(text ?? 'null') as Partial<SaveData> | null;
+        if (copy && (copy.savedAt ?? 0) >= (saved.savedAt ?? 0)) saved = copy;
+      } catch { /* corrupt copy: use the other */ }
+    }
     this.data = { money: START_MONEY, trips: 0, fines: 0, finesTotal: 0, clock: 7 * 60, ...saved };
     if (!Number.isFinite(this.data.money)) this.data.money = START_MONEY;
     Object.assign(this.el.style, { position: 'fixed', top: '12px', right: '12px', padding: '6px 12px', borderRadius: '8px',
@@ -43,9 +51,17 @@ export class Wallet {
 
   savePosition(x: number, z: number, yaw: number) { this.data.pos = { x, z, yaw }; this.save(); }
 
+  /** Browser only: cheap, happens while playing. */
   save() {
-    localStorage.setItem(KEY, JSON.stringify(this.data));
+    this.data.savedAt = Date.now();
+    localStorage.setItem(this.localKey, JSON.stringify(this.data));
     this.render();
+  }
+
+  /** The Save button: write to the account database. */
+  commit() {
+    this.save();
+    store.setItem(KEY, JSON.stringify(this.data));
   }
 
   private render() {

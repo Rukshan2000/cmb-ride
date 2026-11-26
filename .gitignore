@@ -3,3 +3,4 @@ dist
 .env
 backend/.env
 scripts/.cache
+backend/db.env

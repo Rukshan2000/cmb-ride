@@ -1,3 +1,4 @@
+import { store, username } from '../account/Store';
 import type { CollisionWorld } from '../map/CollisionWorld';
 import * as pc from 'playcanvas';
 import { CameraController } from '../camera/CameraController';
@@ -23,6 +24,9 @@ import { Weather } from '../roads/Weather';
 import { Wind } from '../roads/Vegetation';
 import { buildWater, WaterSurface } from '../map/Water';
 import { Settings, type SettingValues } from '../ui/Settings';
+import { hornSetting } from '../ui/HornSetting';
+import { saveButton } from '../ui/SaveButton';
+import { Friends } from '../ui/Friends';
 import { TaxiMode } from './modes/TaxiMode';
 import { Multiplayer } from './modes/Multiplayer';
 import { MetroBusMode, playableStops, type MetroRoute } from './modes/MetroBusMode';
@@ -67,8 +71,8 @@ export class Game {
   private groundMat!: pc.StandardMaterial;
   private wallet!: Wallet;
   private opts!: SettingValues;
-  private settings!: Settings;
   private saveT = 5;
+  private settings!: Settings;
   private peds!: Pedestrians;
   private weather!: Weather;
   private waterSurface!: WaterSurface;
@@ -114,9 +118,12 @@ export class Game {
     if (saved && [saved.x, saved.z].every(Number.isFinite)) [sx, sz] = [saved.x, saved.z];
     app.start();
     await this.loadAround(sx, sz);
-    const spot = this.map.roads.nearest(sx, sz);
+    // The showroom needs space to orbit: prefer a wide road near the spawn over whatever lane is closest.
+    const wide = this.map.roads.nearest(sx, sz, r => r.w >= 9 && !r.y);
+    const spot = wide && wide.dist < 250 ? wide : this.map.roads.nearest(sx, sz);
     const lobbyAt = spot ? { x: spot.x, y: groundAt(spot.x, spot.z), z: spot.z, yaw: Math.atan2(-spot.dx, -spot.dz) } : { x: sx, y: groundAt(sx, sz), z: sz, yaw: 0 };
 
+    const friends = new Friends();
     // Lobby (garage + mode), or skipped with ?mode=free|taxi|metro&route=CM06 / ?room=name
     const choice = await chooseMode(app, this.camEntity, lobbyAt, this.map.collision);
     const metroRoute = choice.mode === 'metro' ? choice.route : null;
@@ -153,7 +160,17 @@ export class Game {
     if (metroRoute) this.mode = new MetroBusMode(app, metroRoute, this.nav, p, modeHud);
     if (choice.mode !== 'metro' && choice.room) {
       const hex = (Math.round(cfg.color[0] * 255) << 16) | (Math.round(cfg.color[1] * 255) << 8) | Math.round(cfg.color[2] * 255);
-      this.mp = new Multiplayer(app, camera, p, this.map, modeHud, choice.room, localStorage.getItem('cmb-rider-name') || 'Rider', cfg.model ?? 'sedan', hex);
+      this.mp = new Multiplayer(app, camera, p, this.map, modeHud, choice.room, username, cfg.model ?? 'sedan', hex, {
+        sound: this.sound, wallet,
+        horn: () => this.input.drive().horn,
+        destination: () => {
+          const t = this.nav.target;
+          if (!t) return null;
+          const [x, z] = project(t.lat, t.lon);
+          return { name: t.name, x, z };
+        },
+        navigate: (name, x, z) => { const [lat, lon] = unproject(x, z); void this.nav.go({ name, address: '', kind: 'race finish', lat, lon }); },
+      });
     }
     const cmp = new URLSearchParams(location.search).get('compare');
     if (cmp) { this.compare = new RouteCompare(app, p, this.cam, canvas); await this.compare.init(cmp); }
@@ -175,6 +192,14 @@ export class Game {
     });
     this.opts = this.settings.values;
     void this.sound.init();
+    hornSetting(this.settings, async clip => { await this.sound.setHorn(clip); this.mp?.setHorn(clip); });
+    friends.button.style.cssText += ';top:116px;left:12px;right:auto';
+    if (this.mp) { friends.room = this.mp.room; friends.inRoom = true; }
+    saveButton(async () => {
+      wallet.savePosition(p.x, p.z, p.yaw);
+      wallet.commit();
+      navHud.toast(await store.synced() ? '💾 Game saved' : "Couldn't reach the server. Will keep trying.", 3000);
+    });
     app.on('update', (dt: number) => this.update(Math.min(dt, 1 / 20)));
   }
 
@@ -432,7 +457,7 @@ async function chooseMode(app: pc.AppBase, camera: pc.Entity, at: { x: number; y
   try { routes = (await (await fetch(`${GameConfig.dataUrl}/metro.json`)).json()).routes; } catch { /* metro mode unavailable */ }
   const m = q.get('mode'), qRoom = q.get('room')?.trim() || undefined;
   if (!m && !qRoom) return showLobby(app, camera, at, routes, walls);
-  const vehicle = (q.get('vehicle') ?? localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey, color = (GARAGE[vehicle] ?? GARAGE.car).color;
+  const vehicle = (q.get('vehicle') ?? store.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey, color = (GARAGE[vehicle] ?? GARAGE.car).color;
   if (m === 'metro') {
     const route = routes.find(r => r.code === q.get('route')) ?? routes.find(r => r.code === 'CM06');
     if (route) return { mode: 'metro', route, vehicle: 'bus', color };

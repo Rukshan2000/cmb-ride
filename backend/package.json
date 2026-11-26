@@ -1,0 +1,6 @@
+{
+  "name": "cmb-rider-backend",
+  "private": true,
+  "type": "module",
+  "dependencies": { "pg": "^8.23.1" }
+}

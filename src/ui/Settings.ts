@@ -1,4 +1,5 @@
-// Game settings popup (⚙ button or G), saved in localStorage. The game pauses while it is open.
+// Game settings popup (⚙ button or G), saved to the account. The game pauses while it is open.
+import { store, signOut, username } from '../account/Store';
 const KEY = 'cmb-rider-settings';
 const LABELS = {
   manual: 'Manual gearbox (E = up, Q = down)',
@@ -15,10 +16,11 @@ export class Settings {
   values: SettingValues = { manual: false, police: true, traffic: true, pedestrians: true, timeFlow: true, rain: false };
 
   private overlay = document.createElement('div');
+  private extra = document.createElement('div'); // non-checkbox rows
   get isOpen() { return this.overlay.style.display !== 'none'; }
 
   constructor(onChange: (v: SettingValues) => void) {
-    try { Object.assign(this.values, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch { /* defaults */ }
+    try { Object.assign(this.values, JSON.parse(store.getItem(KEY) ?? '{}')); } catch { /* defaults */ }
     const o = this.overlay;
     o.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:none;place-items:center';
     o.addEventListener('pointerdown', e => { if (e.target === o) this.toggle(false); }); // click outside closes
@@ -44,7 +46,7 @@ export class Settings {
       input.checked = this.values[k];
       input.addEventListener('change', () => {
         this.values[k] = input.checked;
-        localStorage.setItem(KEY, JSON.stringify(this.values));
+        store.setItem(KEY, JSON.stringify(this.values));
         onChange(this.values);
         input.blur(); // keep keyboard for driving
       });
@@ -54,7 +56,11 @@ export class Settings {
     const hint = document.createElement('small');
     hint.style.cssText = 'display:block;margin-top:16px;opacity:.6';
     hint.textContent = 'G or Esc to close · saved automatically';
-    panel.append(head, box, hint);
+    const out = document.createElement('button');
+    out.textContent = `Sign out (${username})`;
+    out.style.cssText = 'display:block;margin-top:14px;cursor:pointer';
+    out.onclick = () => void signOut();
+    panel.append(head, box, this.extra, out, hint);
     o.appendChild(panel);
     document.body.appendChild(o);
 
@@ -67,6 +73,8 @@ export class Settings {
     document.body.appendChild(btn);
     onChange(this.values);
   }
+
+  add(row: HTMLElement) { this.extra.append(row); }
 
   toggle(open = !this.isOpen) { this.overlay.style.display = open ? 'grid' : 'none'; }
 }

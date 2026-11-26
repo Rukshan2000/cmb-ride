@@ -1,3 +1,4 @@
+import { store } from '../account/Store';
 import type * as pc from 'playcanvas';
 import { project } from '../map/MapProjection';
 import type { CameraController } from '../camera/CameraController';
@@ -19,7 +20,7 @@ export class RouteCompare {
   private cap = document.createElement('div');
   private overlay = false;
   private wantShot = false;
-  private marks: Record<string, string> = JSON.parse(localStorage.getItem('route1-marks') ?? '{}');
+  private marks: Record<string, string> = JSON.parse(store.getItem('route1-marks') ?? '{}');
 
   constructor(private app: pc.AppBase, private car: VehiclePhysics, private cam: CameraController, private canvas: HTMLCanvasElement) {
     this.el.className = 'panel refcompare';
@@ -45,7 +46,7 @@ export class RouteCompare {
     const mark = { Digit1: 'match', Digit2: 'partial', Digit3: 'mismatch' }[code];
     if (mark && this.i >= 0) {
       this.marks[this.refs[this.i].path] = mark;
-      localStorage.setItem('route1-marks', JSON.stringify(this.marks));
+      store.setItem('route1-marks', JSON.stringify(this.marks));
       console.log('route1 comparison marks (paste into references[].comparison):', JSON.stringify(this.marks));
       this.show();
     }

@@ -118,6 +118,12 @@ export class NavigationManager {
 
   get active() { return !!this.place; }
 
+  /** Chosen destination, snapped to where the road route ends (reachable by car). */
+  get target() {
+    const end = this.route?.coords.at(-1);
+    return this.place && end ? { ...this.place, lat: end[0], lon: end[1] } : null;
+  }
+
   private start() {
     if (!this.route) return;
     this.driving = true;

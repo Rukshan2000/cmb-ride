@@ -3,6 +3,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import type { Duplex } from 'node:stream';
+import { accountRoute, userFor } from './accounts.ts';
 
 try { process.loadEnvFile(new URL('../.env', import.meta.url).pathname); } catch { /* env may come from the host */ }
 const KEY = process.env.GROQ_API_KEY ?? '';
@@ -102,13 +103,35 @@ async function readBody(req: IncomingMessage, max = 8192): Promise<any> {
 }
 
 
+// --- custom horns: players upload a short clip, others in the room fetch it by content hash --------
+const HORN_MAX = 200_000;
+const horns = new Map<string, Buffer>(); // ponytail: in memory, newest 50; clients re-upload on reconnect
+
+async function hornRoute(req: IncomingMessage, res: ServerResponse) {
+  if (req.method === 'GET') {
+    const clip = horns.get(req.url!.slice('/api/horn/'.length));
+    if (!clip) return send(res, 404, { error: 'not found' });
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+    return res.end(clip);
+  }
+  if (req.method !== 'POST') return send(res, 404, { error: 'not found' });
+  if (rateLimited(`horn:${req.socket.remoteAddress}`)) return send(res, 429, { error: 'rate limited' });
+  let size = 0; const chunks: Buffer[] = [];
+  for await (const c of req) { size += c.length; if (size > HORN_MAX) return send(res, 413, { error: 'too large' }); chunks.push(c); }
+  const clip = Buffer.concat(chunks), id = createHash('sha1').update(clip).digest('hex').slice(0, 16);
+  horns.delete(id); horns.set(id, clip);
+  if (horns.size > 50) horns.delete(horns.keys().next().value!);
+  send(res, 200, { id });
+}
+
 // --- multiplayer rooms ---------------------------------------------------------------------------
-// ponytail: HTTP polling (~10 Hz) relay, in memory, one process. Move to WebSockets if rooms get big or laggy.
-interface MpPlayer { id: string; name: string; model: string; color: number; x: number; y: number; z: number; yaw: number; v: number; cp: number; t: number }
-type MpEvent = { id: number; kind: 'race'; cps: [number, number][]; start: number; results: { id: string; name: string; ms: number }[] }
+// ponytail: WebSocket relay, in memory, one process. Bets are play money and settled by each client: no anti-cheat.
+interface MpPlayer { id: string; name: string; model: string; color: number; x: number; y: number; z: number; yaw: number; v: number; cp: number; horn: boolean; hornId: string; t: number }
+type MpEvent = { id: number; kind: 'race'; cps: [number, number][]; start: number; results: { id: string; name: string; ms: number }[]; name: string; yaw?: number; bet: number; bettors: string[]; winner?: string }
   | { id: number; kind: 'tag'; it: string; since: number; tags: number; end: number };
 interface Room { players: Map<string, MpPlayer>; event: MpEvent | null }
 const rooms = new Map<string, Room>();
+const ROOM_MAX = 10;
 let eventSeq = 1;
 setInterval(() => { const now = Date.now(); for (const [k, r] of rooms) if ([...r.players.values()].every(p => now - p.t > 5000)) rooms.delete(k); }, 30000).unref();
 const MODELS = ['sedan', 'bus', 'van', 'tuktuk', 'motorcycle', 'camaro'];
@@ -124,21 +147,29 @@ export function mpStep(b: any, now = Date.now()) {
   if (!room) rooms.set(roomId, (room = { players: new Map(), event: null }));
   const me: MpPlayer = {
     id, name: str(b.name, 16) || 'Rider', model: MODELS.includes(b.model) ? b.model : 'sedan', color: num(b.color, 0xffffff) | 0,
-    x: num(b.x), y: num(b.y, 1000), z: num(b.z), yaw: num(b.yaw, 100), v: num(b.v, 200), cp: Math.max(0, num(b.cp, 99) | 0), t: now,
+    x: num(b.x), y: num(b.y, 1000), z: num(b.z), yaw: num(b.yaw, 100), v: num(b.v, 200), cp: Math.max(0, num(b.cp, 99) | 0), horn: b.horn === true, hornId: str(b.hornId, 16), t: now,
   };
-  room.players.set(id, me);
   for (const [k, p] of room.players) if (now - p.t > 5000) room.players.delete(k); // dropped players
+  if (!room.players.has(id) && room.players.size >= ROOM_MAX) return { now, room: roomId, id, full: true as const };
+  room.players.set(id, me);
   const ev = room.event;
   // Start / stop events (any player may).
   if (b.action === 'race' && Array.isArray(b.cps) && b.cps.length >= 2) {
     const cps = b.cps.slice(0, 12).map((c: unknown[]) => [num(c?.[0]), num(c?.[1])] as [number, number]);
-    room.event = { id: eventSeq++, kind: 'race', cps, start: now + 5000, results: [] };
+    const bet = Math.max(0, Math.min(10000, num(b.bet) | 0));
+    room.event = { id: eventSeq++, kind: 'race', cps, start: now + (bet ? 10000 : 5000), results: [], bet, bettors: bet ? [id] : [],
+      name: String(b.dest ?? '').slice(0, 60), yaw: typeof b.gridYaw === 'number' ? num(b.gridYaw, 100) : undefined };
+  } else if (b.action === 'bet' && ev?.kind === 'race' && ev.bet && now < ev.start) {
+    if (!ev.bettors.includes(id)) ev.bettors.push(id);
   } else if (b.action === 'tag' && room.players.size >= 2) {
     room.event = { id: eventSeq++, kind: 'tag', it: id, since: now + 3000, tags: 0, end: now + 180000 };
   } else if (b.action === 'stop') room.event = null;
   // Race finish: first report wins, time measured by the server clock.
   else if (ev?.kind === 'race' && b.finished && now > ev.start && !ev.results.some(r => r.id === id) && me.cp >= ev.cps.length)
+    {
     ev.results.push({ id, name: me.name, ms: now - ev.start });
+    if (ev.bettors.includes(id)) ev.winner ??= id; // first bettor home takes the pot
+  }
   // Tag: "it" touching anyone passes it on (3 s immunity after each tag).
   if (ev?.kind === 'tag') {
     if (now > ev.end || !room.players.has(ev.it)) room.event = null;
@@ -160,7 +191,10 @@ function wsFrame(text: string): Buffer {
   return Buffer.concat([head, data]);
 }
 
-function mpSocket(req: IncomingMessage, sock: Duplex) {
+async function mpSocket(req: IncomingMessage, sock: Duplex) {
+  sock.on('error', () => sock.destroy());
+  const user = await userFor(req).catch(() => undefined); // signed-in riders only, under their own username
+  if (!user) return sock.destroy();
   const key = req.headers['sec-websocket-key'];
   if (req.url !== '/api/mp' || typeof key !== 'string') return sock.destroy();
   const accept = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
@@ -183,9 +217,9 @@ function mpSocket(req: IncomingMessage, sock: Duplex) {
       if (op === 8) return close();                                         // close
       if (op === 9) { sock.write(Buffer.concat([Buffer.from([0x8a, len]), payload])); continue; } // ping -> pong
       if (op !== 1) continue;                                               // only text frames are used
-      let r; try { r = mpStep(JSON.parse(payload.toString())); } catch { r = null; }
+      let r; try { r = mpStep({ ...JSON.parse(payload.toString()), name: user.username }); } catch { r = null; }
       if (!r) { sock.write(wsFrame(JSON.stringify({ error: 'bad message' }))); continue; }
-      me = { room: r.room, id: r.id };
+      if (!('full' in r)) me = { room: r.room, id: r.id };
       sock.write(wsFrame(JSON.stringify(r)));
     }
   });
@@ -193,6 +227,9 @@ function mpSocket(req: IncomingMessage, sock: Duplex) {
 }
 
 const server = createServer(async (req, res) => {
+  if (req.url?.startsWith('/api/auth/') || req.url === '/api/me' || req.url === '/api/me/data' || /^\/api\/friends(?=$|[/?])/.test(req.url ?? ''))
+    return accountRoute(req, res).catch(e => { console.warn('[account]', e.message); if (!res.headersSent) send(res, 500, { error: 'Account server error' }); });
+  if (req.url?.startsWith('/api/horn')) return hornRoute(req, res).catch(() => res.destroy());
   if (req.method !== 'POST' || req.url !== '/api/traffic-scenario') return send(res, 404, { error: 'not found' });
   if (TOKEN && req.headers['x-traffic-token'] !== TOKEN) return send(res, 401, { error: 'unauthorized' });
   const ip = req.socket.remoteAddress ?? '?';

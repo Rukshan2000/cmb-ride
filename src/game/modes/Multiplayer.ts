@@ -6,16 +6,29 @@ import type { MapChunkManager } from '../../map/MapChunkManager';
 import type { ModeHUD } from './ModeHUD';
 import { IMPORTED, glbEntity } from '../../vehicle/ImportedModels';
 import { GARAGE } from '../../vehicle/VehicleConfig';
+import type { Sound, HornKind } from '../../audio/Sound';
+import type { Wallet } from '../Wallet';
 
 // Shared rooms (backend /api/mp over a WebSocket, 20 Hz): see each other drive, plus room events.
-//   Y = start a checkpoint race from here · U = start tag (you're "it") · X = stop the event
+//   Y = race from here (to your navigation destination if one is set) · U = start tag (you're "it") · X = stop the event
+//   B = choose the race stake · K = match the stake during the countdown
 
-interface Remote { id: string; name: string; model: string; color: number; x: number; y: number; z: number; yaw: number; v: number; cp: number }
-type Ev = { id: number; kind: 'race'; cps: [number, number][]; start: number; results: { id: string; name: string; ms: number }[] }
+interface Remote { id: string; name: string; model: string; color: number; x: number; y: number; z: number; yaw: number; v: number; cp: number; horn: boolean; hornId: string }
+type Ev = { id: number; kind: 'race'; cps: [number, number][]; start: number; results: { id: string; name: string; ms: number }[]; name: string; yaw?: number; bet: number; bettors: string[]; winner?: string }
   | { id: number; kind: 'tag'; it: string; since: number; tags: number; end: number } | null;
 interface Shown { e: pc.Entity; label: HTMLDivElement; tx: number; ty: number; tz: number; yaw: number; data: Remote }
 
 const CP_RADIUS = 14;
+const BETS = [0, 500, 1000, 5000];
+const HORN_FOR: Record<string, HornKind> = { motorcycle: 'disc', tuktuk: 'disc', bus: 'bus', van: 'bus' };
+
+/** What the room needs from the rest of the game. */
+export interface MpGame {
+  sound: Sound; wallet: Wallet;
+  horn: () => boolean;
+  destination: () => { name: string; x: number; z: number } | null;
+  navigate: (name: string, x: number, z: number) => void;
+}
 
 export class Multiplayer {
   private id = Math.random().toString(36).slice(2, 10);
@@ -31,9 +44,14 @@ export class Multiplayer {
   private ws?: WebSocket;
   private wasDown = false;
   private lastEventId = 0;
+  private full = false;
+  private bet = 0;                  // stake for the next race I start
+  private staked = 0;               // money already in the current pot
+  private hornClip?: ArrayBuffer;
+  private hornId = '';
 
   constructor(private app: pc.AppBase, private camera: pc.Entity, private p: VehiclePhysics, private map: MapChunkManager,
-    private hud: ModeHUD, readonly room: string, private name: string, private model: string, private color: number) {
+    private hud: ModeHUD, readonly room: string, private name: string, private model: string, private color: number, private game: MpGame) {
     this.models = new ModelCache(app.graphicsDevice);
     const glow = (c: pc.Color) => { const m = new pc.StandardMaterial(); m.emissive = c; m.emissiveIntensity = 2; m.opacity = 0.4; m.blendType = pc.BLEND_ADDITIVE; m.depthWrite = false; m.useLighting = false; m.update(); return m; };
     this.beacon = new pc.Entity('race checkpoint');
@@ -49,7 +67,9 @@ export class Multiplayer {
     hud.toast(`Joined room "${room}". Share it: ${location.origin}${location.pathname}?room=${encodeURIComponent(room)}`, 8000);
     window.addEventListener('keydown', e => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.code === 'KeyY') this.action = { action: 'race', cps: this.raceRoute() };
+      if (e.code === 'KeyY') this.startRace();
+      if (e.code === 'KeyB') { this.bet = BETS[(BETS.indexOf(this.bet) + 1) % BETS.length]; this.hud.toast(this.bet ? `Race stake: Rs ${this.bet}` : 'Race stake: none', 2000); }
+      if (e.code === 'KeyK') this.joinBet();
       if (e.code === 'KeyU') this.action = { action: 'tag' };
       if (e.code === 'KeyX') this.action = { action: 'stop' };
     });
@@ -58,6 +78,55 @@ export class Multiplayer {
   }
 
   private get now() { return Date.now() + this.clockSkew; }
+
+  private startRace() {
+    if (this.bet > this.game.wallet.data.money) return this.hud.toast(`You can't cover a Rs ${this.bet} stake.`, 3000);
+    const d = this.game.destination();
+    this.action = d
+      ? { action: 'race', cps: [[this.p.x, this.p.z], [Math.round(d.x), Math.round(d.z)]], dest: d.name, gridYaw: this.p.yaw, bet: this.bet }
+      : { action: 'race', cps: this.raceRoute(), bet: this.bet };
+  }
+
+  private joinBet() {
+    const ev = this.event;
+    if (ev?.kind !== 'race' || !ev.bet || this.now >= ev.start || ev.bettors.includes(this.id)) return;
+    if (ev.bet > this.game.wallet.data.money) return this.hud.toast(`You can't cover the Rs ${ev.bet} stake.`, 3000);
+    this.action = { action: 'bet' };
+  }
+
+  /** Money follows the server's bettor list: pay in when listed, pot to the winner, refund if the race dies first. */
+  private settle(ev: Ev) {
+    const old = this.event;
+    if (this.staked && old?.kind === 'race' && ev?.id !== old.id) { // stopped or replaced with no winner
+      this.game.wallet.pay(this.staked, 'Bet refund'); this.staked = 0;
+      this.hud.toast('Race cancelled: stake refunded.', 3000);
+    }
+    if (ev?.kind !== 'race') return;
+    const seen = old?.kind === 'race' && old.id === ev.id ? old : null;
+    if (ev.bettors.includes(this.id) && !seen?.bettors.includes(this.id)) {
+      this.staked = ev.bet; this.game.wallet.pay(-ev.bet, 'Race bet');
+    }
+    if (ev.winner && !seen?.winner) {
+      const pot = ev.bet * ev.bettors.length;
+      if (ev.winner === this.id) this.game.wallet.pay(pot, 'Race pot');
+      this.staked = 0;
+      this.hud.toast(`💰 ${this.nameOf(ev.winner)} took the Rs ${pot} pot`, 5000);
+    }
+  }
+
+  /** My custom horn (undefined = stock): uploaded so others can hear it. */
+  setHorn(clip?: ArrayBuffer) { this.hornClip = clip; this.hornId = ''; void this.uploadHorn(); }
+
+  private async uploadHorn() {
+    const clip = this.hornClip;
+    if (!clip) return;
+    try {
+      const r = await fetch('/api/horn', { method: 'POST', body: clip });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const { id } = await r.json() as { id: string };
+      if (this.hornClip === clip) this.hornId = id;
+    } catch { this.hud.toast("Couldn't share your horn: others hear the stock one.", 4000); }
+  }
 
   /** Start + 6 checkpoints ~300 m apart, wandering from where you face; snapped to roads that are loaded. */
   private raceRoute(): [number, number][] {
@@ -76,15 +145,17 @@ export class Multiplayer {
   /** Open the room socket; on drop, reconnect with backoff (server also forgets us at once on close). */
   private connect(delay = 500) {
     const ws = (this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/mp`));
-    ws.onopen = () => { if (this.wasDown) this.hud.toast('Reconnected to room.', 3000); this.wasDown = false; delay = 500; };
+    ws.onopen = () => { void this.uploadHorn(); if (this.wasDown) this.hud.toast('Reconnected to room.', 3000); this.wasDown = false; delay = 500; };
     ws.onmessage = m => {
-      const r = JSON.parse(m.data) as { now?: number; players?: Remote[]; event?: Ev };
+      const r = JSON.parse(m.data) as { now?: number; players?: Remote[]; event?: Ev; full?: boolean };
+      if (r.full) { this.full = true; this.hud.toast(`Room "${this.room}" is full (10 riders). Pick another room.`, 10000); return ws.close(); }
       if (!r.players) return;
       this.clockSkew = r.now! - Date.now();
       this.apply(r.players);
       this.setEvent(r.event ?? null);
     };
     ws.onclose = () => {
+      if (this.full) return;
       if (!this.wasDown) this.hud.toast('Lost connection to the multiplayer server (is `npm run backend` running?)', 6000);
       this.wasDown = true;
       setTimeout(() => this.connect(Math.min(delay * 2, 8000)), delay);
@@ -94,7 +165,7 @@ export class Multiplayer {
   private send() {
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     const p = this.p, ev = this.event;
-    this.ws.send(JSON.stringify({ room: this.room, id: this.id, name: this.name, model: this.model, color: this.color, x: p.x, y: p.y, z: p.z, yaw: p.yaw, v: p.forwardSpeed, cp: this.cp,
+    this.ws.send(JSON.stringify({ room: this.room, id: this.id, name: this.name, model: this.model, color: this.color, x: p.x, y: p.y, z: p.z, yaw: p.yaw, v: p.forwardSpeed, cp: this.cp, horn: this.game.horn(), hornId: this.hornId,
       finished: ev?.kind === 'race' && this.cp >= ev.cps.length, ...this.action }));
     this.action = undefined;
   }
@@ -131,21 +202,23 @@ export class Multiplayer {
       Object.assign(s, { tx: r.x, ty: r.y, tz: r.z, yaw: r.yaw, data: r });
       s.label.textContent = r.name;
     }
-    for (const [id, s] of this.others) if (!seen.has(id)) { this.hud.toast(`${s.data.name} left`, 3000); s.e.destroy(); s.label.remove(); this.others.delete(id); }
+    for (const [id, s] of this.others) if (!seen.has(id)) { this.game.sound.remoteHorn(id, false, 0, 0, 'car'); this.hud.toast(`${s.data.name} left`, 3000); s.e.destroy(); s.label.remove(); this.others.delete(id); }
   }
 
   private setEvent(ev: Ev) {
+    this.settle(ev);
     if (ev?.id !== this.lastEventId) {
       this.lastEventId = ev?.id ?? 0;
       this.grid = undefined;
       if (ev?.kind === 'race') {
         // Grid slot by sorted id, side by side behind the start line, facing the first checkpoint.
         const ids = [this.id, ...this.others.keys()].sort(), slot = ids.indexOf(this.id);
-        const [sx, sz] = ev.cps[0], [nx, nz] = ev.cps[1], yaw = Math.atan2(-(nx - sx), -(nz - sz));
+        const [sx, sz] = ev.cps[0], [nx, nz] = ev.cps[1], yaw = ev.yaw ?? Math.atan2(-(nx - sx), -(nz - sz));
         const off = (slot % 2 ? 1 : -1) * 2.5, back = Math.floor(slot / 2) * 7;
         this.grid = [sx + Math.cos(yaw) * off + Math.sin(yaw) * back, sz - Math.sin(yaw) * off + Math.cos(yaw) * back, yaw];
         this.cp = 1;
-        this.hud.toast('🏁 Race! Follow the blue beacons. Starting in 5…', 5000);
+        if (ev.name) this.game.navigate(ev.name, nx, nz);
+        this.hud.toast(`🏁 Race${ev.name ? ` to ${ev.name}` : ': follow the blue beacons'}!${ev.bet ? ` Stake Rs ${ev.bet}: press K to bet.` : ''}`, 6000);
       } else if (ev?.kind === 'tag') this.hud.toast(`🔴 Tag! ${this.nameOf(ev.it)} is IT. Don't get touched!`, 5000);
       else this.hud.toast('Event over. Free roam.', 3000);
     }
@@ -204,14 +277,15 @@ export class Multiplayer {
       cam.worldToScreen(new pc.Vec3(pos.x, pos.y + 3, pos.z), sp, w, h);
       const far = Math.hypot(pos.x - this.p.x, pos.z - this.p.z);
       s.label.style.display = sp.z > 0 && far < 400 ? '' : 'none';
+      this.game.sound.remoteHorn(s.data.id, s.data.horn, pos.x, pos.z, HORN_FOR[s.data.model] ?? 'car', s.data.hornId);
       s.label.style.left = `${(sp.x / w) * innerWidth}px`; s.label.style.top = `${(sp.y / h) * innerHeight}px`;
     }
     this.collide();
     this.itMarker.enabled = false; this.beacon.enabled = false;
     const ev = this.event, now = this.now, players = this.others.size + 1;
-    if (!ev) { this.hud.set(`${players} in room`, 'Free roam', 'Y race · U tag · X stop'); return; }
+    if (!ev) { this.hud.set(`${players} in room`, 'Free roam', `Y race (set a destination to race there) · B stake Rs ${this.bet} · U tag · H horn`); return; }
     if (ev.kind === 'race') {
-      if (now < ev.start && this.grid) { this.p.reset(...this.grid); this.hud.set(`Race starts in ${Math.ceil((ev.start - now) / 1000)}`, `${ev.cps.length - 1} checkpoints`, 'X cancels'); return; }
+      if (now < ev.start && this.grid) { this.p.reset(...this.grid); this.hud.set(`Race starts in ${Math.ceil((ev.start - now) / 1000)}`, ev.bet ? `Pot Rs ${ev.bet * ev.bettors.length} · ${ev.bettors.includes(this.id) ? "you're in" : `K to bet Rs ${ev.bet}`}` : `${ev.cps.length - 1} checkpoints`, 'X cancels'); return; }
       const done = this.cp >= ev.cps.length;
       if (!done) {
         const [cx, cz] = ev.cps[this.cp];

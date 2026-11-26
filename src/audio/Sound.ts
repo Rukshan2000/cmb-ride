@@ -35,6 +35,10 @@ export class Sound {
   private twoStrokeOk = false;
   private pool: { voice: Voice; panner: PannerNode; kind: EngineKind; v?: TrafficVehicle }[] = [];
 
+  private custom?: AudioBuffer;                         // the player's uploaded horn
+  private clips = new Map<string, AudioBuffer | null>(); // other riders' uploads, by id
+  private remotes = new Map<string, { stop: () => void; panner: PannerNode }>();
+
   constructor() {
     this.master.gain.value = 0.7;
     this.master.connect(this.ctx.destination);
@@ -87,7 +91,7 @@ export class Sound {
     this.loops.skid!.gain.setTargetAtTime(lateral > 3 ? Math.min(0.5, (lateral - 3) * 0.08) : 0, t, 0.05);
     this.loops.city!.gain.setTargetAtTime(0.12 + rush * 0.18, t, 0.5);
     this.loops.siren!.gain.setTargetAtTime(siren ? 0.25 : 0, t, 0.2);
-    if (horn && !this.hornNode) this.hornNode = this.horn(1, 0.5, this.hornKind);
+    if (horn && !this.hornNode) this.hornNode = this.horn(1, 0.5, this.hornKind, this.custom);
     if (!horn && this.hornNode) { this.hornNode(); this.hornNode = null; }
     if (car.impact > this.lastImpact + 2) this.crash(Math.min(1, car.impact / 12));
     this.lastImpact = car.impact;
@@ -98,6 +102,29 @@ export class Sound {
       const stop = this.horn(0.85 + Math.random() * 0.3, 0.06 + Math.random() * 0.08, kind);
       setTimeout(stop, 150 + Math.random() * 600);
     }
+  }
+
+  /** Use an uploaded clip as the player's horn (undefined = stock). Throws if it isn't decodable audio. */
+  async setHorn(data?: ArrayBuffer) {
+    this.custom = data && await this.ctx.decodeAudioData(data.slice(0));
+  }
+
+  /** Another rider's horn, positioned in the world. Call every frame with whether they're holding it. */
+  remoteHorn(id: string, on: boolean, x: number, z: number, kind: HornKind, clip = '') {
+    if (clip && !this.clips.has(clip)) {
+      this.clips.set(clip, null);
+      fetch(`/api/horn/${clip}`).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => this.ctx.decodeAudioData(b))
+        .then(b => this.clips.set(clip, b)).catch(() => {}); // stock horn stays
+    }
+    let h = this.remotes.get(id);
+    if (!on) { h?.stop(); this.remotes.delete(id); return; }
+    if (!h) {
+      const panner = this.ctx.createPanner();
+      Object.assign(panner, { panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 8, maxDistance: 200 });
+      panner.connect(this.master);
+      this.remotes.set(id, h = { panner, stop: this.horn(1, 0.5, kind, this.clips.get(clip) ?? undefined, panner) });
+    }
+    h.panner.positionX.value = x; h.panner.positionY.value = 1; h.panner.positionZ.value = z;
   }
 
   // --- building blocks ---------------------------------------------------------------------------------
@@ -177,13 +204,14 @@ export class Sound {
    *  disc: the small 12 V disc horn on motorcycles / tuk-tuks: one buzzy, nasal tone (~470 Hz), diaphragm rattle
    *  bus:  deep dual horn (~280 + 350 Hz), louder, with an air-horn edge
    */
-  private horn(pitch: number, gain: number, kind: HornKind = 'car'): () => void {
+  private horn(pitch: number, gain: number, kind: HornKind = 'car', clip?: AudioBuffer, dest: AudioNode = this.master): () => void {
     const c = this.ctx, g = c.createGain(), t = c.currentTime;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.015);
-    g.connect(this.master);
+    g.connect(dest);
     const srcs: AudioScheduledSourceNode[] = [];
-    if (this.buf.horn && kind === 'car') {
-      const s = c.createBufferSource(); s.buffer = this.buf.horn; s.loop = true; s.playbackRate.value = pitch; s.connect(g); srcs.push(s);
+    const sample = clip ?? (kind === 'car' ? this.buf.horn : undefined);
+    if (sample) {
+      const s = c.createBufferSource(); s.buffer = sample; s.loop = true; s.playbackRate.value = pitch; s.connect(g); srcs.push(s);
     } else {
       const f = c.createBiquadFilter(), tones = kind === 'disc' ? [470] : kind === 'bus' ? [280, 350] : [415, 500];
       f.type = kind === 'disc' ? 'bandpass' : 'lowpass';

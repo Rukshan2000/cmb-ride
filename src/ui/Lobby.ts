@@ -1,3 +1,4 @@
+import { store } from '../account/Store';
 import * as pc from 'playcanvas';
 import type { CollisionWorld } from '../map/CollisionWorld';
 import { CATALOG } from '../traffic/VehicleCatalog';
@@ -41,9 +42,9 @@ function measure(cfg: VehicleConfig) {
 export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: number; y: number; z: number; yaw: number }, routes: MetroRoute[], walls?: CollisionWorld): Promise<LobbyChoice> {
   const stats = Object.fromEntries(KEYS.map(k => [k, measure(GARAGE[k])])) as Record<GarageKey, ReturnType<typeof measure>>;
   const max = { top: Math.max(...KEYS.map(k => stats[k].top)), grip: Math.max(...KEYS.map(k => stats[k].grip)) };
-  let vi = Math.max(0, KEYS.indexOf((localStorage.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey));
-  let paint = Number(localStorage.getItem('cmb-rider-paint') ?? -1);  // -1 = the vehicle's stock colour
-  let mode: (typeof MODES)[number]['id'] = (localStorage.getItem('cmb-rider-mode') as never) ?? 'free';
+  let vi = Math.max(0, KEYS.indexOf((store.getItem('cmb-rider-vehicle') ?? 'car') as GarageKey));
+  let paint = Number(store.getItem('cmb-rider-paint') ?? -1);  // -1 = the vehicle's stock colour
+  let mode: (typeof MODES)[number]['id'] = (store.getItem('cmb-rider-mode') as never) ?? 'free';
   if (!MODES.some(m => m.id === mode)) mode = 'free';
 
   // --- DOM ---------------------------------------------------------------------------------------------
@@ -74,8 +75,7 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
     o.value = r.code; o.textContent = `${r.code} · ${r.name} (${n} stops)`; o.disabled = n < 2; o.selected = r.code === 'CM06';
     routeSel.append(o);
   }
-  const roomIn = Object.assign(document.createElement('input'), { placeholder: 'Room name (share it with friends)', maxLength: 24, value: localStorage.getItem('cmb-rider-room') ?? '' });
-  const nameIn = Object.assign(document.createElement('input'), { placeholder: 'Your rider name', maxLength: 16, value: localStorage.getItem('cmb-rider-name') ?? '' });
+  const roomIn = Object.assign(document.createElement('input'), { placeholder: 'Room name (share it with friends)', maxLength: 24, value: store.getItem('cmb-rider-room') ?? '' });
   const riders = document.createElement('div'); riders.className = 'riders';
 
   // --- 3D turntable on the street ----------------------------------------------------------------------
@@ -110,7 +110,7 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
     // Never orbit through a wall: pull in to just short of the first one, and rise to keep the vehicle in view.
     const cx = at.x + Math.sin(orbit) * d, cz = at.z + Math.cos(orbit) * d, t = walls?.raycast(at.x, at.z, cx, cz) ?? 1;
     const k = t < 1 ? Math.max(0.35, t - 0.08) : 1;
-    camera.setPosition(at.x + (cx - at.x) * k, at.y + h + (1 - k) * 4, at.z + (cz - at.z) * k);
+    camera.setPosition(at.x + (cx - at.x) * k, at.y + h + (1 - k) * 1.2, at.z + (cz - at.z) * k);
     // Aim left of the car so it sits in the open area right of the side panel.
     const rx = Math.cos(orbit), rz = -Math.sin(orbit), off = innerWidth > 800 ? -L * 0.35 : 0;
     camera.lookAt(at.x + rx * off, at.y + 0.8, at.z + rz * off);
@@ -135,7 +135,7 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
   const renderModes = () => {
     $('.modes').innerHTML = MODES.map(m => `<button class="tile${m.id === mode ? ' on' : ''}" data-m="${m.id}" ${m.id === 'metro' && !routes.length ? 'disabled' : ''}><b>${m.title}</b><small>${m.sub}</small></button>`).join('');
     const opts = $('.mode-opts');
-    opts.replaceChildren(...(mode === 'metro' ? [routeSel] : mode === 'multi' ? [roomIn, nameIn, riders] : []));
+    opts.replaceChildren(...(mode === 'metro' ? [routeSel] : mode === 'multi' ? [roomIn, riders] : []));
     if (mode === 'metro') { vi = KEYS.indexOf('bus'); renderGarage(); }
   };
   root.addEventListener('click', e => {
@@ -158,7 +158,7 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
           const r = JSON.parse(m.data) as { players?: { name: string; model: string }[] };
           if (!r.players) return;
           riders.innerHTML = r.players.length
-            ? `<span class="live">● ${r.players.length} riding in “${room}”</span>` + r.players.map(p => `<span class="rider">${p.name.replace(/[<&]/g, '')} <small>${p.model}</small></span>`).join('')
+            ? `<span class="live">● ${r.players.length}/10 riding in “${room}”</span>` + r.players.map(p => `<span class="rider">${p.name.replace(/[<&]/g, '')} <small>${p.model}</small></span>`).join('')
             : `<span class="empty">Room “${room}” is empty. Start it and share the name.</span>`;
         };
         peekWs.onopen = peek;
@@ -175,9 +175,9 @@ export async function showLobby(app: pc.AppBase, camera: pc.Entity, at: { x: num
   return new Promise(resolve => {
     const start = () => {
       const k = KEYS[vi], color = colorOf();
-      localStorage.setItem('cmb-rider-vehicle', k); localStorage.setItem('cmb-rider-paint', String(paint)); localStorage.setItem('cmb-rider-mode', mode);
+      store.setItem('cmb-rider-vehicle', k); store.setItem('cmb-rider-paint', String(paint)); store.setItem('cmb-rider-mode', mode);
       const room = roomIn.value.trim() || 'colombo';
-      if (mode === 'multi') { localStorage.setItem('cmb-rider-room', room); if (nameIn.value.trim()) localStorage.setItem('cmb-rider-name', nameIn.value.trim()); }
+      if (mode === 'multi') { store.setItem('cmb-rider-room', room); }
       // Tear down the lobby.
       clearInterval(peekTimer); peekWs?.close(); app.off('update', frame); car?.destroy(); root.remove();
       canvas.removeEventListener('mousedown', down); window.removeEventListener('mouseup', up); window.removeEventListener('mousemove', move); window.removeEventListener('keydown', key);
